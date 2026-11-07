@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 06d20f42032cf81468c22c97d6ee9456, type: 3}
+  m_Name: Building_House
+  m_EditorClassIdentifier: Assembly-CSharp::KingdomsClone.Data.BuildingDataSO
+  id: Building_House
+  displayName: 
+  description: 
+  icon: {fileID: 0}
+  prefab: {fileID: 0}
+  size: {x: 2, y: 2}
+  category: 0
+  maxHealth: 100
+  workerSlots: 0
+  storageCapacity: 0
+  buildTimeSeconds: 5
+  buildCost:
+  - resource: {fileID: 11400000, guid: e779cbd3cfc44d4498fd431bcdaaa070, type: 2}
+    amount: 10
+  production:
+    inputs: []
+    outputs: []
+    cycleSeconds: 10
+  happinessBonus: 0
+  happinessRadius: 0

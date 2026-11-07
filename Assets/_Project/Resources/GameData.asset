@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4ea4a755e0f26534ebb1ef426014c033, type: 3}
+  m_Name: GameData
+  m_EditorClassIdentifier: Assembly-CSharp::KingdomsClone.Data.GameDataSO
+  resources:
+  - {fileID: 11400000, guid: ac161cb7f7d3d0242883de59bfa61b93, type: 2}
+  - {fileID: 11400000, guid: df61875d6b1c04744a07d083b3c16252, type: 2}
+  - {fileID: 11400000, guid: e779cbd3cfc44d4498fd431bcdaaa070, type: 2}
+  - {fileID: 11400000, guid: af18c0f31d9efd3438f6988fba0fb91e, type: 2}
+  buildings:
+  - {fileID: 11400000, guid: 1bd97c75e8ba92c4a8beb75b9d9b0ec0, type: 2}
+  - {fileID: 11400000, guid: f92baee5c0e28c947bc679b5d223a424, type: 2}
+  - {fileID: 11400000, guid: 1b3edaddf4873d04abd0f6a62ddcd180, type: 2}
+  units:
+  - {fileID: 11400000, guid: 92ec73e4b046d9d46aaf5f9b798ef70b, type: 2}
+  - {fileID: 11400000, guid: d00f747fd45b26c46b4fb18b229b7a27, type: 2}

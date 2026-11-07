@@ -1,0 +1,38 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 06d20f42032cf81468c22c97d6ee9456, type: 3}
+  m_Name: Building_Farm
+  m_EditorClassIdentifier: Assembly-CSharp::KingdomsClone.Data.BuildingDataSO
+  id: Building_Farm
+  displayName: 
+  description: 
+  icon: {fileID: 0}
+  prefab: {fileID: 0}
+  size: {x: 3, y: 3}
+  category: 1
+  maxHealth: 120
+  workerSlots: 1
+  storageCapacity: 0
+  buildTimeSeconds: 5
+  buildCost:
+  - resource: {fileID: 11400000, guid: ac161cb7f7d3d0242883de59bfa61b93, type: 2}
+    amount: 15
+  production:
+    inputs: []
+    outputs:
+    - resource: {fileID: 0}
+      amount: 0
+    - resource: {fileID: 0}
+      amount: 0
+    cycleSeconds: 20
+  happinessBonus: 0
+  happinessRadius: 0
