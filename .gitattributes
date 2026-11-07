@@ -169,3 +169,8 @@ Packages/packages-lock.json linguist-generated
 
 # Exceptions for .asset files such as lightning pre-baking
 LightingData.asset     binary
+
+git lfs track "*.psd" "*.png" "*.jpg" "*.jpeg" "*.tga" "*.tif" "*.tiff" "*.exr"
+git lfs track "*.fbx" "*.obj" "*.blend" "*.max" "*.ma" "*.mb"
+git lfs track "*.wav" "*.mp3" "*.ogg" "*.aiff"
+git lfs track "*.mp4" "*.mov" "*.webm"
