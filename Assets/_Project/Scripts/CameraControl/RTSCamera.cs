@@ -129,6 +129,19 @@ namespace KingdomsClone.CameraControl
             transform.rotation = rotation;
         }
 
+        /// <summary>
+        /// Мгновенно перемещает камеру к указанной точке на земле (Y игнорируется).
+        /// Используется дебаг-меню (задача 0.8) и будущими фичами (мини-карта, фокус на юните).
+        /// </summary>
+        public void TeleportTo(Vector3 worldPos)
+        {
+            _targetPivot = new Vector3(worldPos.x, 0f, worldPos.z);
+            _currentPivot = _targetPivot;
+            ClampPivot();
+            ApplyTransform();
+            Debug.Log($"[RTSCamera] Teleported to {_targetPivot}");
+        }
+
         private void OnDrawGizmosSelected()
         {
             // Границы карты

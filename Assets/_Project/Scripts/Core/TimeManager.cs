@@ -5,7 +5,7 @@ namespace KingdomsClone.Core
 {
     /// <summary>
     /// Игровое время: тики, дни, сезоны, скорость.
-    /// Управляет Time.timeScale (пауза = 0, скорости 1..3).
+    /// Управляет Time.timeScale (пауза = 0, скорости 1..3, но дебаг может выкрутить x10+).
     /// Сам подписан на GameStateChangedEvent — пауза игры = пауза времени.
     /// </summary>
     [DefaultExecutionOrder(-900)]
@@ -25,6 +25,7 @@ namespace KingdomsClone.Core
         private float _gameTimeSeconds;
         private float _tickAccumulator;
         private float _speed = 1f;
+        private float _debugSpeedMultiplier = 1f;  // Для читов (x10) — не сбрасывается обычным SetSpeed
         private int _lastDay = 1;
         private bool _isPaused = true;   // стартуем в Boot — время стоит
 
@@ -32,7 +33,7 @@ namespace KingdomsClone.Core
         public int CurrentDay => Mathf.FloorToInt(_gameTimeSeconds / SecondsPerDay) + 1;
         public float DayProgress => (_gameTimeSeconds % SecondsPerDay) / SecondsPerDay;
         public float Speed => _speed;
-        public float EffectiveSpeed => _isPaused ? 0f : _speed;
+        public float EffectiveSpeed => _isPaused ? 0f : _speed * _debugSpeedMultiplier;
         public bool IsPaused => _isPaused;
 
         public int Year => ((CurrentDay - 1) / (DaysPerSeason * 4)) + 1;
@@ -65,7 +66,9 @@ namespace KingdomsClone.Core
             float dt = Time.deltaTime;  // уже масштабирован через Time.timeScale
             _gameTimeSeconds += dt;
 
-            // Тики: 4 раза в секунду игрового времени
+            // Тики: 4 раза в секунду игрового времени.
+            // ВАЖНО: на скорости x10 и выше dt может быть больше TickInterval (0.25),
+            // поэтому в одном кадре может вылететь несколько тиков подряд. Цикл while это покрывает.
             _tickAccumulator += dt;
             while (_tickAccumulator >= TickInterval)
             {
@@ -73,14 +76,14 @@ namespace KingdomsClone.Core
                 EventBus.Publish(new GameTickEvent { DeltaGameSeconds = TickInterval });
             }
 
-            // Смена дня
+            // Смена дня. На x10 день может смениться не по одному — цикл это покроет.
             int day = CurrentDay;
-            if (day != _lastDay)
+            while (day != _lastDay)
             {
-                _lastDay = day;
+                _lastDay++;
                 EventBus.Publish(new DayChangedEvent
                 {
-                    NewDay = day,
+                    NewDay = _lastDay,
                     Year = Year,
                     Season = CurrentSeason
                 });
@@ -100,6 +103,18 @@ namespace KingdomsClone.Core
             EventBus.Publish(new GameSpeedChangedEvent { OldSpeed = old, NewSpeed = newSpeed });
         }
 
+        /// <summary>
+        /// Дебаг-множитель скорости. Применяется поверх обычной скорости.
+        /// SetDebugSpeed(10) при Speed=1 → время идёт x10.
+        /// SetDebugSpeed(1)  → возвращает обычную скорость.
+        /// </summary>
+        public void SetDebugSpeed(float multiplier)
+        {
+            _debugSpeedMultiplier = Mathf.Max(1f, multiplier);
+            ApplyTimeScale();
+            Debug.Log($"[TimeManager] Debug speed multiplier set to {_debugSpeedMultiplier}x (effective: {EffectiveSpeed}x)");
+        }
+
         private void SetPaused(bool paused)
         {
             if (_isPaused == paused) return;
@@ -117,13 +132,14 @@ namespace KingdomsClone.Core
         {
             if (seconds <= 0f) return;
             _gameTimeSeconds += seconds;
+            
             int day = CurrentDay;
-            if (day != _lastDay)
+            while (day != _lastDay)
             {
-                _lastDay = day;
+                _lastDay++;
                 EventBus.Publish(new DayChangedEvent
                 {
-                    NewDay = day,
+                    NewDay = _lastDay,
                     Year = Year,
                     Season = CurrentSeason
                 });
