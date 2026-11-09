@@ -19,12 +19,6 @@ namespace KingdomsClone.Grid
         [SerializeField] private Color waterColor    = new Color(0.2f, 0.5f, 0.8f);
         [SerializeField] private Color fertileColor  = new Color(0.8f, 0.7f, 0.4f);
 
-        [Header("Heights")]
-        [SerializeField] private float waterHeight = 0.2f;
-        [SerializeField] private float grassHeight = 1.0f;
-        [SerializeField] private float forestHeight = 2.0f;
-        [SerializeField] private float rockHeight = 3.0f;
-
         private class Batch
         {
             public Matrix4x4[] Matrices;
@@ -52,13 +46,12 @@ namespace KingdomsClone.Grid
                 { TileType.Fertile, fertileColor },
             };
 
-            // Создаем меш куба прямо в коде
+            // Создаем меш куба прямо в коде (1х1х1)
             _proceduralCubeMesh = GenerateCubeMesh();
         }
 
         private Mesh GenerateCubeMesh()
         {
-            // Быстрый и надежный способ получить идеальный куб 1х1х1
             GameObject tempCube = GameObject.CreatePrimitive(PrimitiveType.Cube);
             Mesh mesh = Instantiate(tempCube.GetComponent<MeshFilter>().sharedMesh);
             Destroy(tempCube); 
@@ -79,6 +72,8 @@ namespace KingdomsClone.Grid
 
         private void OnGridGenerated(GridGeneratedEvent e)
         {
+            // При регенерации карты (например, с новым сидом) сбрасываем флаг готовности
+            _isReady = false;
             PrepareBatches();
         }
 
@@ -110,25 +105,23 @@ namespace KingdomsClone.Grid
                     Cell cell = grid.GetCell(x, y);
                     if (cell == null) continue;
 
-                    // 1. Получаем базовую позицию центра клетки
+                    // 1. Берем высоту из самой клетки (задается в MapGenerator)
+                    float height = cell.Elevation;
+                    
+                    // 2. Получаем базовую позицию центра клетки
                     Vector3 pos = grid.CellToWorld(x, y);
-
-                    // 2. Определяем высоту в зависимости от типа тайла
-                    float height = grassHeight;
-                    if (cell.Type == TileType.Water) height = waterHeight;
-                    else if (cell.Type == TileType.Forest) height = forestHeight;
-                    else if (cell.Type == TileType.Rock) height = rockHeight;
-
-                    // 3. Поднимаем куб так, чтобы его низ был на уровне Y=0
-                    // (Так как pivot куба в центре, поднимаем на половину высоты)
+                    
+                    // 3. Поднимаем куб так, чтобы его низ был на уровне Y=0. 
+                    // Так как pivot куба в центре, поднимаем на половину высоты.
                     pos.y += (height * 0.5f) + yOffset;
 
-                    // 4. Масштабируем: чуть больше 1 по X и Z, чтобы не было щелей
+                    // 4. Масштабируем: чуть больше 1 по X и Z (overlap), чтобы не было щелей
                     float overlap = 1.02f;
                     Vector3 scale = new Vector3(grid.CellSize * overlap, height, grid.CellSize * overlap);
 
                     tmpMatrices[count] = Matrix4x4.TRS(pos, rot, scale);
 
+                    // 5. Цвет
                     Color c = _colorDict[cell.Type];
                     tmpColors[count] = new Vector4(c.r, c.g, c.b, c.a);
 

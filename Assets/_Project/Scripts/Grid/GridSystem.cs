@@ -18,6 +18,10 @@ namespace KingdomsClone.Grid
         [Tooltip("Смещение сетки в мире. Если (0,0), то левый нижний угол клетки (0,0) будет в мировых координатах (0,0,0).")]
         [SerializeField] private Vector3 originPosition = Vector3.zero;
 
+        [Header("Map Generation")]
+        [Tooltip("Сид для генератора. Одинаковый сид = одинаковая карта. Меняй, чтобы получить новую.")]
+        [SerializeField] private int mapSeed = 12345;
+
         private Cell[,] _grid;
 
         public int Width => width;
@@ -34,41 +38,20 @@ namespace KingdomsClone.Grid
 
         private void Start()
         {
-            GenerateEmptyGrid();
+            GenerateMap();
         }
 
-        [Header("Noise Settings")]
-        [SerializeField] private float noiseScale = 6f;
-        [SerializeField] private int mapSeed = 12345;
-
-        private void GenerateEmptyGrid()
+        /// <summary>
+        /// Вызывает процедурный генератор карт (Perlin Noise + Flood Fill).
+        /// </summary>
+        private void GenerateMap()
         {
-            _grid = new Cell[width, height];
-            System.Random prng = new System.Random(mapSeed);
-            float offsetX = prng.Next(-10000, 10000);
-            float offsetY = prng.Next(-10000, 10000);
+            // Вызываем наш новый генератор, передавая ему размеры и сид
+            _grid = MapGenerator.Generate(width, height, mapSeed);
 
-            for (int x = 0; x < width; x++)
-            {
-                for (int y = 0; y < height; y++)
-                {
-                    float nx = (float)x / width * noiseScale + offsetX;
-                    float ny = (float)y / height * noiseScale + offsetY;
-                    float noise = Mathf.PerlinNoise(nx, ny);
+            Debug.Log($"[GridSystem] Карта {width}x{height} сгенерирована. Сид: {mapSeed}");
 
-                    TileType type = TileType.Grass;
-                    if (noise < 0.35f) type = TileType.Water;
-                    else if (noise < 0.42f) type = TileType.Fertile;
-                    else if (noise > 0.65f) type = TileType.Forest;
-                    else if (noise > 0.55f)
-                    {
-                        if (prng.NextDouble() < 0.3) type = TileType.Rock;
-                    }
-
-                    _grid[x, y] = new Cell(x, y, type);
-                }
-            }
-
+            // Сообщаем всем системам (камера, визуализатор), что карта готова
             EventBus.Publish(new GridGeneratedEvent
             {
                 Width = width,
