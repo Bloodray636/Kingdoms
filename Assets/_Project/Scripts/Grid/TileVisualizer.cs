@@ -8,9 +8,9 @@ namespace KingdomsClone.Grid
     public class TileVisualizer : MonoBehaviour
     {
         [Header("Visual Settings")]
-        [SerializeField] private Material tileMaterial;
-        [SerializeField] private float yOffset = 0.01f;
-        [SerializeField] private int layer = 0;
+        [SerializeField] private Material landMaterial;
+        [SerializeField] private Material waterMaterial;
+        [SerializeField] private float yOffset = 0.0f; // Земля плоская
 
         [Header("Colors per Type")]
         [SerializeField] private Color grassColor    = new Color(0.4f, 0.7f, 0.3f);
@@ -19,24 +19,12 @@ namespace KingdomsClone.Grid
         [SerializeField] private Color waterColor    = new Color(0.2f, 0.5f, 0.8f);
         [SerializeField] private Color fertileColor  = new Color(0.8f, 0.7f, 0.4f);
 
-        private class Batch
-        {
-            public Matrix4x4[] Matrices;
-            public Vector4[] Colors;
-            public int Count;
-        }
-
-        private readonly List<Batch> _batches = new();
         private Dictionary<TileType, Color> _colorDict;
-        private MaterialPropertyBlock _propertyBlock;
-        private Mesh _proceduralCubeMesh;
-        private bool _isReady = false;
-
-        private const int MaxBatchSize = 1023;
+        private GameObject _landMeshObj;
+        private GameObject _waterMeshObj;
 
         private void Awake()
         {
-            _propertyBlock = new MaterialPropertyBlock();
             _colorDict = new Dictionary<TileType, Color>
             {
                 { TileType.Grass,   grassColor   },
@@ -45,24 +33,13 @@ namespace KingdomsClone.Grid
                 { TileType.Water,   waterColor   },
                 { TileType.Fertile, fertileColor },
             };
-
-            // Создаем меш куба прямо в коде (1х1х1)
-            _proceduralCubeMesh = GenerateCubeMesh();
-        }
-
-        private Mesh GenerateCubeMesh()
-        {
-            GameObject tempCube = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            Mesh mesh = Instantiate(tempCube.GetComponent<MeshFilter>().sharedMesh);
-            Destroy(tempCube); 
-            return mesh;
         }
 
         private void OnEnable()
         {
             EventBus.Subscribe<GridGeneratedEvent>(OnGridGenerated);
             if (GridSystem.Instance != null && GridSystem.Instance.Grid != null)
-                PrepareBatches();
+                GenerateMeshes();
         }
 
         private void OnDisable()
@@ -72,31 +49,27 @@ namespace KingdomsClone.Grid
 
         private void OnGridGenerated(GridGeneratedEvent e)
         {
-            // При регенерации карты (например, с новым сидом) сбрасываем флаг готовности
-            _isReady = false;
-            PrepareBatches();
+            GenerateMeshes();
         }
 
-        private void PrepareBatches()
+        private void GenerateMeshes()
         {
-            if (_isReady) return;
-
             var grid = GridSystem.Instance;
             if (grid == null || grid.Grid == null) return;
-            if (tileMaterial == null)
-            {
-                Debug.LogError("[TileVisualizer] Не назначен Material!");
-                return;
-            }
 
-            _batches.Clear();
+            if (_landMeshObj != null) Destroy(_landMeshObj);
+            if (_waterMeshObj != null) Destroy(_waterMeshObj);
 
-            var tmpMatrices = new Matrix4x4[MaxBatchSize];
-            var tmpColors   = new Vector4[MaxBatchSize];
-            int count = 0;
+            List<Vector3> landVerts = new List<Vector3>();
+            List<int> landTris = new List<int>();
+            List<Color> landColors = new List<Color>();
 
-            // Для куба поворот не нужен
-            Quaternion rot = Quaternion.identity; 
+            List<Vector3> waterVerts = new List<Vector3>();
+            List<int> waterTris = new List<int>();
+            List<Color> waterColors = new List<Color>();
+
+            // Делаем квадрат чуть больше 1х1 (0.505), чтобы не было щелей
+            float halfSize = 0.505f;
 
             for (int x = 0; x < grid.Width; x++)
             {
@@ -105,72 +78,71 @@ namespace KingdomsClone.Grid
                     Cell cell = grid.GetCell(x, y);
                     if (cell == null) continue;
 
-                    // 1. Берем высоту из самой клетки (задается в MapGenerator)
-                    float height = cell.Elevation;
-                    
-                    // 2. Получаем базовую позицию центра клетки
-                    Vector3 pos = grid.CellToWorld(x, y);
-                    
-                    // 3. Поднимаем куб так, чтобы его низ был на уровне Y=0. 
-                    // Так как pivot куба в центре, поднимаем на половину высоты.
-                    pos.y += (height * 0.5f) + yOffset;
-
-                    // 4. Масштабируем: чуть больше 1 по X и Z (overlap), чтобы не было щелей
-                    float overlap = 1.02f;
-                    Vector3 scale = new Vector3(grid.CellSize * overlap, height, grid.CellSize * overlap);
-
-                    tmpMatrices[count] = Matrix4x4.TRS(pos, rot, scale);
-
-                    // 5. Цвет
+                    // ВСЕГДА ПЛОСКО (y = 0)
+                    float yPos = yOffset; 
                     Color c = _colorDict[cell.Type];
-                    tmpColors[count] = new Vector4(c.r, c.g, c.b, c.a);
 
-                    count++;
+                    // Координаты для одного квадрата
+                    Vector3 p0 = new Vector3(x + 0.5f - halfSize, yPos, y + 0.5f - halfSize);
+                    Vector3 p1 = new Vector3(x + 0.5f - halfSize, yPos, y + 0.5f + halfSize);
+                    Vector3 p2 = new Vector3(x + 0.5f + halfSize, yPos, y + 0.5f - halfSize);
+                    Vector3 p3 = new Vector3(x + 0.5f + halfSize, yPos, y + 0.5f + halfSize);
 
-                    if (count >= MaxBatchSize)
+                    if (cell.Type == TileType.Water)
                     {
-                        AddBatch(tmpMatrices, tmpColors, count);
-                        count = 0;
+                        int startIndex = waterVerts.Count;
+                        waterVerts.Add(p0); waterVerts.Add(p1); waterVerts.Add(p2); waterVerts.Add(p3);
+                        waterColors.Add(c); waterColors.Add(c); waterColors.Add(c); waterColors.Add(c);
+                        
+                        // Треугольники смотрят вверх
+                        waterTris.Add(startIndex); waterTris.Add(startIndex + 1); waterTris.Add(startIndex + 2);
+                        waterTris.Add(startIndex + 1); waterTris.Add(startIndex + 3); waterTris.Add(startIndex + 2);
+                    }
+                    else
+                    {
+                        int startIndex = landVerts.Count;
+                        landVerts.Add(p0); landVerts.Add(p1); landVerts.Add(p2); landVerts.Add(p3);
+                        landColors.Add(c); landColors.Add(c); landColors.Add(c); landColors.Add(c);
+                        
+                        // Треугольники смотрят вверх
+                        landTris.Add(startIndex); landTris.Add(startIndex + 1); landTris.Add(startIndex + 2);
+                        landTris.Add(startIndex + 1); landTris.Add(startIndex + 3); landTris.Add(startIndex + 2);
                     }
                 }
             }
 
-            if (count > 0) AddBatch(tmpMatrices, tmpColors, count);
+            _landMeshObj = CreateMeshObject("LandMesh", landVerts, landTris, landColors, landMaterial);
+            _waterMeshObj = CreateMeshObject("WaterMesh", waterVerts, waterTris, waterColors, waterMaterial);
 
-            _isReady = true;
-            Debug.Log($"[TileVisualizer] Готово к рендеру: {_batches.Count} батчей, всего {grid.Width * grid.Height} тайлов.");
+            Debug.Log("[TileVisualizer] Плоский меш сгенерирован!");
         }
 
-        private void AddBatch(Matrix4x4[] matrices, Vector4[] colors, int count)
+        private GameObject CreateMeshObject(string name, List<Vector3> verts, List<int> tris, List<Color> colors, Material mat)
         {
-            var batch = new Batch
-            {
-                Matrices = new Matrix4x4[count],
-                Colors   = new Vector4[count],
-                Count    = count,
-            };
-            System.Array.Copy(matrices, batch.Matrices, count);
-            System.Array.Copy(colors,   batch.Colors,   count);
-            _batches.Add(batch);
-        }
+            if (verts.Count == 0) return null;
 
-        private void LateUpdate()
-        {
-            if (!_isReady) return;
+            GameObject obj = new GameObject(name);
+            obj.transform.SetParent(transform);
 
-            for (int i = 0; i < _batches.Count; i++)
-            {
-                var b = _batches[i];
-                _propertyBlock.SetVectorArray("_BaseColor", b.Colors);
-                Graphics.DrawMeshInstanced(
-                    _proceduralCubeMesh, 0, tileMaterial,
-                    b.Matrices, b.Count,
-                    _propertyBlock,
-                    UnityEngine.Rendering.ShadowCastingMode.Off,
-                    receiveShadows: false,
-                    layer: layer
-                );
-            }
+            MeshFilter mf = obj.AddComponent<MeshFilter>();
+            MeshRenderer mr = obj.AddComponent<MeshRenderer>();
+            mr.sharedMaterial = mat;
+
+            Mesh mesh = new Mesh();
+            mesh.name = name;
+            mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32; 
+            
+            mesh.SetVertices(verts);
+            mesh.SetTriangles(tris, 0);
+            mesh.SetColors(colors);
+            
+            // Жестко задаем нормали вверх (чтобы не было странного освещения)
+            Vector3[] normals = new Vector3[verts.Count];
+            for (int i = 0; i < normals.Length; i++) normals[i] = Vector3.up;
+            mesh.normals = normals;
+
+            mf.sharedMesh = mesh;
+            return obj;
         }
     }
 }

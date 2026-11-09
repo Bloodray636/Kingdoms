@@ -5,14 +5,14 @@ namespace KingdomsClone.Grid
 {
     public static class MapGenerator
     {
-        public static Cell[,] Generate(int width, int height, int seed)
+        public static Cell[,] Generate(int width, int height, int seed, out Vector2Int startLocation)
         {
             Cell[,] grid = new Cell[width, height];
             System.Random prng = new System.Random(seed);
 
-            // БАГФИКС: Используем небольшие смещения (до 1000), иначе PerlinNoise ломается
-            float offsetX = prng.Next(-1000, 1000);
-            float offsetY = prng.Next(-1000, 1000);
+            // Смещения для уникальности карты
+            float offsetX = (float)prng.NextDouble() * 1000f;
+            float offsetY = (float)prng.NextDouble() * 1000f;
 
             for (int x = 0; x < width; x++)
             {
@@ -21,57 +21,61 @@ namespace KingdomsClone.Grid
                     float nx = (float)x / width;
                     float ny = (float)y / height;
 
-                    // Шум Перлина (2 слоя: крупный рельеф и мелкие детали)
-                    float noise = Mathf.PerlinNoise((nx * 4f) + offsetX, (ny * 4f) + offsetY);
-                    float detail = Mathf.PerlinNoise((nx * 12f) + offsetX, (ny * 12f) + offsetY);
-                    float finalNoise = (noise + (detail * 0.2f)) / 1.2f;
+                    // 1. Генерируем высоту без искажений
+                    float noise = Mathf.PerlinNoise((nx * 5f) + offsetX, (ny * 5f) + offsetY);
+                    float detail = Mathf.PerlinNoise((nx * 15f) + offsetX, (ny * 15f) + offsetY);
+                    float finalNoise = (noise * 0.8f) + (detail * 0.2f);
 
-                    // Falloff (остров)
-                    float distanceToCenter = Vector2.Distance(new Vector2(nx, ny), new Vector2(0.5f, 0.5f));
-                    float falloff = Mathf.Clamp01((distanceToCenter - 0.1f) * 2f); 
+                    // 2. Маска острова (круглая)
+                    float distToCenter = Vector2.Distance(new Vector2(nx, ny), new Vector2(0.5f, 0.5f));
+                    float mask = Mathf.Clamp01(1f - (distToCenter * 2f)); // 1 в центре, 0 по краям
 
-                    // БАГФИКС: Умножаем, а не вычитаем. Это гарантирует остров.
-                    float elevation = finalNoise * (1f - falloff);
+                    // 3. Смешиваем
+                    float elevation = finalNoise * mask;
 
-                    // Распределение тайлов (пороги настроены под новый elevation)
                     TileType type = TileType.Grass;
-                    float heightInMeters = 1f;
 
-                    if (elevation < 0.15f) {
+                    if (elevation < 0.15f) 
+                    {
                         type = TileType.Water;
-                        heightInMeters = 0.2f;
                     }
-                    else if (elevation < 0.25f) {
-                        type = TileType.Fertile;
-                        heightInMeters = 1f;
+                    else if (elevation < 0.20f) 
+                    {
+                        type = TileType.Fertile; // Пляж
                     }
-                    else if (elevation >= 0.75f) {
-                        type = TileType.Rock;
-                        heightInMeters = 3f + (elevation * 2f); // Горы высокие
+                    else if (elevation > 0.65f) 
+                    {
+                        type = TileType.Rock; 
                     }
-                    else if (elevation >= 0.55f) {
-                        // Лес растет на возвышенностях
-                        if (prng.NextDouble() < 0.7) {
-                            type = TileType.Forest;
-                            heightInMeters = 1.5f;
-                        } else {
-                            heightInMeters = 1.2f;
-                        }
+                    else if (elevation > 0.40f) 
+                    {
+                        // Лес
+                        type = TileType.Forest;
                     }
 
-                    grid[x, y] = new Cell(x, y, type, heightInMeters);
+                    grid[x, y] = new Cell(x, y, type, elevation);
                 }
             }
 
-            // Запускаем проверку связности (Flood Fill)
             EnsurePlayableMap(grid, width, height);
+            startLocation = FindStartPosition(grid, width, height);
 
             return grid;
         }
 
-        /// <summary>
-        /// Находит самый большой остров и заставляет все остальные острова утонуть.
-        /// </summary>
+        private static Vector2Int FindStartPosition(Cell[,] grid, int width, int height)
+        {
+            Vector2Int bestPos = new Vector2Int(width / 2, height / 2);
+            for (int x = width / 4; x < width * 3 / 4; x++)
+            {
+                for (int y = height / 4; y < height * 3 / 4; y++)
+                {
+                    if (grid[x, y].Type == TileType.Grass) return new Vector2Int(x, y);
+                }
+            }
+            return bestPos;
+        }
+
         private static void EnsurePlayableMap(Cell[,] grid, int width, int height)
         {
             bool[,] visited = new bool[width, height];
@@ -81,29 +85,25 @@ namespace KingdomsClone.Grid
             {
                 for (int y = 0; y < height; y++)
                 {
-                    if (!visited[x, y] && grid[x, y].IsBuildable())
+                    if (!visited[x, y] && grid[x, y].IsWalkable())
                     {
                         List<Vector2Int> island = FloodFill(grid, x, y, visited, width, height);
-                        if (island.Count > largestIsland.Count)
-                        {
-                            largestIsland = island;
-                        }
+                        if (island.Count > largestIsland.Count) largestIsland = island;
                     }
                 }
             }
 
             bool[,] isPartOfMainIsland = new bool[width, height];
-            foreach (var pos in largestIsland)
-                isPartOfMainIsland[pos.x, pos.y] = true;
+            foreach (var pos in largestIsland) isPartOfMainIsland[pos.x, pos.y] = true;
 
             for (int x = 0; x < width; x++)
             {
                 for (int y = 0; y < height; y++)
                 {
-                    if (!grid[x, y].IsWalkable() && !isPartOfMainIsland[x, y])
+                    if (!isPartOfMainIsland[x, y])
                     {
                         grid[x, y].Type = TileType.Water;
-                        grid[x, y].Elevation = 0.2f;
+                        grid[x, y].Elevation = 0f; 
                     }
                 }
             }
@@ -113,7 +113,6 @@ namespace KingdomsClone.Grid
         {
             List<Vector2Int> island = new List<Vector2Int>();
             Queue<Vector2Int> queue = new Queue<Vector2Int>();
-            
             queue.Enqueue(new Vector2Int(startX, startY));
             visited[startX, startY] = true;
 
@@ -124,19 +123,14 @@ namespace KingdomsClone.Grid
             {
                 Vector2Int current = queue.Dequeue();
                 island.Add(current);
-
                 for (int i = 0; i < 4; i++)
                 {
                     int nx = current.x + dx[i];
                     int ny = current.y + dy[i];
-
-                    if (nx >= 0 && nx < width && ny >= 0 && ny < height && !visited[nx, ny])
+                    if (nx >= 0 && nx < width && ny >= 0 && ny < height && !visited[nx, ny] && grid[nx, ny].IsWalkable())
                     {
-                        if (grid[nx, ny].IsBuildable()) 
-                        {
-                            visited[nx, ny] = true;
-                            queue.Enqueue(new Vector2Int(nx, ny));
-                        }
+                        visited[nx, ny] = true;
+                        queue.Enqueue(new Vector2Int(nx, ny));
                     }
                 }
             }

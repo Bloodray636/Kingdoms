@@ -148,18 +148,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 154759cb4446f0147bdb4a35a8c673d7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::KingdomsClone.Grid.TileVisualizer
-  tileMaterial: {fileID: 2100000, guid: 5877a7f504a1fa84194ef43c390d9046, type: 2}
+  landMaterial: {fileID: 2100000, guid: 57f0763e561f18842bbf5134f7a7fea7, type: 2}
+  waterMaterial: {fileID: 2100000, guid: 849c9f98ed0aefb45aad0a1986cfd8bf, type: 2}
   yOffset: 0.01
-  layer: 0
-  grassColor: {r: 0.4, g: 0.7, b: 0.3, a: 1}
-  forestColor: {r: 0.1, g: 0.4, b: 0.1, a: 1}
-  rockColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
-  waterColor: {r: 0.2, g: 0.5, b: 0.8, a: 1}
-  fertileColor: {r: 0.8, g: 0.7, b: 0.4, a: 1}
-  waterHeight: 0.2
-  grassHeight: 1
-  forestHeight: 2
-  rockHeight: 3
+  grassColor: {r: 0.5764706, g: 0.7607843, b: 0.34117648, a: 1}
+  forestColor: {r: 0.3529412, g: 0.54901963, b: 0.2784314, a: 1}
+  rockColor: {r: 0.6392157, g: 0.6392157, b: 0.6392157, a: 1}
+  waterColor: {r: 0.44705883, g: 0.75686276, b: 0.78431374, a: 1}
+  fertileColor: {r: 0.9490196, g: 0.9019608, b: 0.7019608, a: 1}
 --- !u!4 &247195873
 Transform:
   m_ObjectHideFlags: 0
@@ -330,9 +326,9 @@ MonoBehaviour:
   edgePanZonePixels: 15
   edgePanEnabled: 1
   panSmoothTime: 0.15
-  initialZoom: 0.8
-  minDistance: 10
-  maxDistance: 150
+  initialZoom: 1
+  minDistance: 30
+  maxDistance: 200
   minPitch: 45
   maxPitch: 80
   scrollSensitivity: 0.0015
@@ -544,8 +540,7 @@ MonoBehaviour:
   height: 100
   cellSize: 1
   originPosition: {x: 0, y: 0, z: 0}
-  noiseScale: 6
-  mapSeed: 12345
+  mapSeed: 876
 --- !u!4 &579501473
 Transform:
   m_ObjectHideFlags: 0
@@ -940,8 +935,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::KingdomsClone.Grid.GridVisualizer
   highlightMaterial: {fileID: 2100000, guid: d477bb7189f95b14da52c88e5b8fe106, type: 2}
-  lineColor: {r: 1, g: 1, b: 1, a: 0.2}
+  fishingMarkerMaterial: {fileID: 2100000, guid: d81862b4024ba3847ace10d0f8424d7f, type: 2}
   showLines: 1
+  lineColor: {r: 1, g: 1, b: 1, a: 1}
+  lineStep: 5
 --- !u!4 &1705802500
 Transform:
   m_ObjectHideFlags: 0

@@ -15,11 +15,9 @@ namespace KingdomsClone.Grid
         [SerializeField] private float cellSize = 1f;
         
         [Header("Map Origin")]
-        [Tooltip("Смещение сетки в мире. Если (0,0), то левый нижний угол клетки (0,0) будет в мировых координатах (0,0,0).")]
         [SerializeField] private Vector3 originPosition = Vector3.zero;
 
         [Header("Map Generation")]
-        [Tooltip("Сид для генератора. Одинаковый сид = одинаковая карта. Меняй, чтобы получить новую.")]
         [SerializeField] private int mapSeed = 12345;
 
         private Cell[,] _grid;
@@ -28,6 +26,10 @@ namespace KingdomsClone.Grid
         public int Height => height;
         public float CellSize => cellSize;
         public Cell[,] Grid => _grid;
+        
+        public Vector3 OriginPosition => originPosition;
+        public Vector2Int StartLocation { get; private set; }
+        public int CurrentSeed => mapSeed;
 
         private void Awake()
         {
@@ -38,34 +40,40 @@ namespace KingdomsClone.Grid
 
         private void Start()
         {
-            GenerateMap();
+            RegenerateMap(mapSeed);
         }
 
         /// <summary>
-        /// Вызывает процедурный генератор карт (Perlin Noise + Flood Fill).
+        /// Публичный метод для перегенерации карты с новым сидом.
+        /// Вызывает событие GridGeneratedEvent, на которое подписаны все визуализаторы.
         /// </summary>
-        private void GenerateMap()
+        public void RegenerateMap(int newSeed)
         {
-            // Вызываем наш новый генератор, передавая ему размеры и сид
-            _grid = MapGenerator.Generate(width, height, mapSeed);
+            if (width <= 0 || height <= 0 || cellSize <= 0f)
+            {
+                Debug.LogError("[GridSystem] Некорректные размеры сетки!");
+                return;
+            }
 
-            Debug.Log($"[GridSystem] Карта {width}x{height} сгенерирована. Сид: {mapSeed}");
+            mapSeed = newSeed;
 
-            // Сообщаем всем системам (камера, визуализатор), что карта готова
+            _grid = MapGenerator.Generate(width, height, mapSeed, out Vector2Int startPos);
+            StartLocation = startPos;
+
+            Debug.Log($"[GridSystem] Карта {width}x{height} сгенерирована. Сид: {mapSeed}. Старт: {StartLocation}");
+
             EventBus.Publish(new GridGeneratedEvent
             {
                 Width = width,
                 Height = height,
                 CellSize = cellSize,
-                OriginWorldPosition = originPosition
+                OriginWorldPosition = originPosition,
+                StartLocation = StartLocation
             });
         }
 
         // ---------- Конвертация координат ----------
 
-        /// <summary>
-        /// Возвращает мировые координаты ЦЕНТРА клетки.
-        /// </summary>
         public Vector3 CellToWorld(int x, int y)
         {
             return new Vector3(
@@ -77,9 +85,6 @@ namespace KingdomsClone.Grid
 
         public Vector3 CellToWorld(Vector2Int cell) => CellToWorld(cell.x, cell.y);
 
-        /// <summary>
-        /// Возвращает координаты клетки по мировой позиции.
-        /// </summary>
         public Vector2Int WorldToCell(Vector3 worldPos)
         {
             int x = Mathf.FloorToInt((worldPos.x - originPosition.x) / cellSize);
@@ -94,34 +99,30 @@ namespace KingdomsClone.Grid
 
         public Cell GetCell(int x, int y)
         {
+            if (_grid == null) return null;
             if (!IsValidCell(x, y)) return null;
             return _grid[x, y];
         }
 
-        // ---------- Визуализация в редакторе ----------
-        private void OnDrawGizmos()
+        public bool IsFishingZone(int x, int y)
         {
-            if (!Application.isPlaying) return;
+            if (!IsValidCell(x, y)) return false;
+            
+            Cell cell = GetCell(x, y);
+            if (cell == null || (cell.Type != TileType.Grass && cell.Type != TileType.Fertile)) return false;
 
-            Gizmos.color = new Color(1f, 1f, 1f, 0.2f);
-
-            // Рисуем только внешние границы и линии каждые 10 клеток, чтобы не убить FPS редактора
-            for (int x = 0; x <= width; x += 10)
+            for (int dx = -1; dx <= 1; dx++)
             {
-                Vector3 start = originPosition + new Vector3(x * cellSize, 0f, 0f);
-                Vector3 end = originPosition + new Vector3(x * cellSize, 0f, height * cellSize);
-                Gizmos.DrawLine(start, end);
+                for (int dy = -1; dy <= 1; dy++)
+                {
+                    if (dx == 0 && dy == 0) continue;
+                    if (IsValidCell(x + dx, y + dy) && GetCell(x + dx, y + dy).Type == TileType.Water)
+                    {
+                        return true;
+                    }
+                }
             }
-            for (int y = 0; y <= height; y += 10)
-            {
-                Vector3 start = originPosition + new Vector3(0f, 0f, y * cellSize);
-                Vector3 end = originPosition + new Vector3(width * cellSize, 0f, y * cellSize);
-                Gizmos.DrawLine(start, end);
-            }
-
-            // Рисуем центр клетки (0,0) красным для ориентира
-            Gizmos.color = Color.red;
-            Gizmos.DrawWireSphere(CellToWorld(0, 0), 0.5f);
+            return false;
         }
     }
 }

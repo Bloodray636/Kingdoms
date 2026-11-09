@@ -1,18 +1,23 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using KingdomsClone.Grid;
 
 namespace KingdomsClone.Grid
 {
     /// <summary>
-    /// Рисует линии сетки в Game View, подсвечивает клетку под курсором
-    /// и показывает отладочные координаты (Задача 1.3).
+    /// Рисует линии сетки, подсвечивает клетку под курсором, 
+    /// показывает координаты и визуализирует рыболовные зоны.
     /// </summary>
     public class GridVisualizer : MonoBehaviour
     {
-        [Header("Visual Settings")]
-        [SerializeField] private Material highlightMaterial; // Материал для подсветки
-        [SerializeField] private Color lineColor = new Color(1f, 1f, 1f, 0.2f);
+        [Header("Materials")]
+        [SerializeField] private Material highlightMaterial;     // Желтый квадрат под курсором
+        [SerializeField] private Material fishingMarkerMaterial; // Голубой маркер рыбалки
+
+        [Header("Grid Lines")]
         [SerializeField] private bool showLines = true;
+        [SerializeField] private Color lineColor = new Color(1f, 1f, 1f, 0.2f);
+        [SerializeField] private int lineStep = 5; // Рисовать линию каждые N клеток
 
         private Vector2Int _hoveredCell = new Vector2Int(-1, -1);
         private Mesh _quadMesh;
@@ -30,82 +35,85 @@ namespace KingdomsClone.Grid
 
             if (grid == null || cam == null || mouse == null) return;
 
-            // 1. Луч из камеры в точку мыши
+            // Луч из камеры в точку мыши
             Ray ray = cam.ScreenPointToRay(mouse.position.ReadValue());
             
-            // 2. Плоскость земли (Y = 0)
+            // Плоскость земли (Y = 0)
             Plane groundPlane = new Plane(Vector3.up, Vector3.zero);
 
-            // 3. Находим пересечение
             if (groundPlane.Raycast(ray, out float enter))
             {
                 Vector3 hitPoint = ray.GetPoint(enter);
                 _hoveredCell = grid.WorldToCell(hitPoint);
             }
-        }
-
-        private void OnRenderObject()
-        {
-            if (Camera.current != Camera.main || !showLines) return;
-
-            var grid = GridSystem.Instance;
-            if (grid == null) return;
-
-            // --- Линии сетки ---
-            // Чтобы не рисовать 10 000 линий, рисуем только те, что попадают в камеру.
-            // Для простоты пока рисуем каждую 5-ю линию.
-            GL.PushMatrix();
-            GL.LoadProjectionMatrix(Camera.main.projectionMatrix);
-            GL.modelview = Camera.main.worldToCameraMatrix;
-
-            GL.Begin(GL.LINES);
-            GL.Color(lineColor);
-
-            float y = 1.05f; // Чуть выше травы (grassHeight = 1.0)
-            int step = 5;    // Рисуем линию каждые 5 клеток
-
-            for (int x = 0; x <= grid.Width; x += step)
+            else
             {
-                GL.Vertex3(x, y, 0);
-                GL.Vertex3(x, y, grid.Height);
+                _hoveredCell = new Vector2Int(-1, -1); // Мышь за пределами карты
             }
-            for (int yPos = 0; yPos <= grid.Height; yPos += step)
-            {
-                GL.Vertex3(0, y, yPos);
-                GL.Vertex3(grid.Width, y, yPos);
-            }
-
-            GL.End();
-            GL.PopMatrix();
         }
 
         private void LateUpdate()
         {
             var grid = GridSystem.Instance;
-            if (grid == null || highlightMaterial == null) return;
+            if (grid == null) return;
 
-            // --- Подсветка клетки под курсором ---
-            if (grid.IsValidCell(_hoveredCell.x, _hoveredCell.y))
+            // 1. Подсветка клетки под курсором
+            if (highlightMaterial != null && grid.IsValidCell(_hoveredCell.x, _hoveredCell.y))
             {
                 Cell cell = grid.GetCell(_hoveredCell.x, _hoveredCell.y);
                 Vector3 pos = grid.CellToWorld(_hoveredCell.x, _hoveredCell.y);
-
-                // Высота зависит от типа тайла
-                float h = 1.05f; // Над травой
-                if (cell.Type == TileType.Water) h = 0.25f;
-                else if (cell.Type == TileType.Forest) h = 2.05f;
-                else if (cell.Type == TileType.Rock) h = 3.05f;
-
-                pos.y = h;
+                
+                // Поднимаем квадрат ровно над кубом тайла
+                pos.y = cell.Elevation + 0.05f;
 
                 Quaternion rot = Quaternion.Euler(-90f, 0f, 0f);
                 Matrix4x4 mat = Matrix4x4.TRS(pos, rot, new Vector3(grid.CellSize * 1.02f, grid.CellSize * 1.02f, 1f));
 
                 Graphics.DrawMesh(_quadMesh, mat, highlightMaterial, 0);
             }
+
+            // 2. Визуализация рыболовных зон
+            if (fishingMarkerMaterial != null)
+            {
+                for (int x = 0; x < grid.Width; x++)
+                {
+                    for (int y = 0; y < grid.Height; y++)
+                    {
+                        if (grid.IsFishingZone(x, y))
+                        {
+                            Vector3 pos = grid.CellToWorld(x, y);
+                            pos.y = grid.GetCell(x, y).Elevation + 0.1f; // Над землей
+
+                            Matrix4x4 mat = Matrix4x4.TRS(pos, Quaternion.identity, Vector3.one * 0.3f);
+                            Graphics.DrawMesh(_quadMesh, mat, fishingMarkerMaterial, 0);
+                        }
+                    }
+                }
+            }
         }
 
-        // --- Отладочные маркеры ---
+        // Линии сетки — рисуются в окне Scene (в Game View в URP они не видны без отдельного шейдера)
+        private void OnDrawGizmos()
+        {
+            if (!showLines || !Application.isPlaying) return;
+
+            var grid = GridSystem.Instance;
+            if (grid == null) return;
+
+            Gizmos.color = lineColor;
+            float y = 1.05f; // Чуть выше уровня травы
+
+            for (int x = 0; x <= grid.Width; x += lineStep)
+            {
+                Gizmos.DrawLine(new Vector3(x, y, 0), new Vector3(x, y, grid.Height));
+            }
+            for (int yPos = 0; yPos <= grid.Height; yPos += lineStep)
+            {
+                Gizmos.DrawLine(new Vector3(0, y, yPos), new Vector3(grid.Width, y, yPos));
+            }
+        }
+
+        // Отладочные координаты в углу экрана
         private void OnGUI()
         {
             if (_hoveredCell.x >= 0)

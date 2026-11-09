@@ -6,12 +6,6 @@ using KingdomsClone.Grid.Events;
 
 namespace KingdomsClone.CameraControl
 {
-    /// <summary>
-    /// RTS-камера: панорамирование (WASD + край экрана), зум колесом,
-    /// ограничение по границам карты, плавность через SmoothDamp.
-    /// Камера смотрит на "пивот" на земле (Y=0); пивот двигается, камера следует.
-    /// Автоматически подхватывает границы при генерации карты через GridGeneratedEvent.
-    /// </summary>
     public class RTSCamera : MonoBehaviour
     {
         [Header("Panning")]
@@ -24,14 +18,13 @@ namespace KingdomsClone.CameraControl
         [Header("Zoom")]
         [SerializeField, Range(0f, 1f)] private float initialZoom = 0.4f;
         [SerializeField] private float minDistance = 10f;
-        [SerializeField] private float maxDistance = 40f;
-        [SerializeField] private float minPitch = 45f;          // близко: наклон к горизонту
-        [SerializeField] private float maxPitch = 70f;          // далеко: top-down
+        [SerializeField] private float maxDistance = 150f;
+        [SerializeField] private float minPitch = 45f;
+        [SerializeField] private float maxPitch = 80f;
         [SerializeField] private float scrollSensitivity = 0.0015f;
         [SerializeField] private float zoomSmoothTime = 0.15f;
 
         [Header("Map Bounds (XZ) — автозаполняется из GridSystem")]
-        [Tooltip("Если GridSystem есть в сцене — эти значения перезапишутся из события GridGeneratedEvent.")]
         [SerializeField] private Vector2 mapMin = new Vector2(-50f, -50f);
         [SerializeField] private Vector2 mapMax = new Vector2(50f, 50f);
 
@@ -41,8 +34,6 @@ namespace KingdomsClone.CameraControl
         private float _currentZoom;
         private float _targetZoom;
         private float _zoomVelocity;
-
-        // ---------- Lifecycle ----------
 
         private void OnEnable()
         {
@@ -58,19 +49,25 @@ namespace KingdomsClone.CameraControl
         {
             _currentZoom = _targetZoom = Mathf.Clamp01(initialZoom);
 
-            // Если сетка УЖЕ сгенерирована до того, как мы стартовали — забираем границы сразу.
-            // (защита от race condition: GridSystem.Start мог отработать раньше нашего OnEnable)
+            // ИСПРАВЛЕНИЕ 1.2: Берем реальные границы с учетом OriginPosition и телепортируемся в StartLocation
             if (GridSystem.Instance != null && GridSystem.Instance.Grid != null)
             {
                 var g = GridSystem.Instance;
+                Vector3 origin = g.OriginPosition;
+                
                 SetBounds(
-                    new Vector2(0f, 0f),
-                    new Vector2(g.Width * g.CellSize, g.Height * g.CellSize)
+                    new Vector2(origin.x, origin.z),
+                    new Vector2(origin.x + g.Width * g.CellSize, origin.z + g.Height * g.CellSize)
                 );
+
+                Vector3 startWorld = g.CellToWorld(g.StartLocation);
+                _currentPivot = _targetPivot = startWorld;
+                _pivotVelocity = Vector3.zero;
+                
+                ApplyTransform();
             }
             else
             {
-                // Иначе остаёмся на дефолтных границах из инспектора
                 SetBounds(mapMin, mapMax);
             }
         }
@@ -83,8 +80,6 @@ namespace KingdomsClone.CameraControl
             SmoothStep();
             ApplyTransform();
         }
-
-        // ---------- Input ----------
 
         private void HandlePanInput()
         {
@@ -107,7 +102,6 @@ namespace KingdomsClone.CameraControl
                 if (mouse != null)
                 {
                     Vector2 mp = mouse.position.ReadValue();
-                    // В редакторе мышь может быть вне Game view — отсекаем такие случаи
                     if (mp.x >= 0 && mp.x <= Screen.width && mp.y >= 0 && mp.y <= Screen.height)
                     {
                         if (mp.x < edgePanZonePixels) input.x -= 1f;
@@ -120,10 +114,12 @@ namespace KingdomsClone.CameraControl
 
             if (input.sqrMagnitude > 0f)
             {
-                input = Vector2.ClampMagnitude(input, 1f); // диагональ не быстрее
-                float zoomSpeedMul = Mathf.Lerp(0.6f, 1.6f, _currentZoom); // дальше = быстрее
+                input = Vector2.ClampMagnitude(input, 1f);
+                float zoomSpeedMul = Mathf.Lerp(0.6f, 1.6f, _currentZoom);
                 float speed = panSpeed * zoomSpeedMul * (fast ? fastPanMultiplier : 1f);
-                _targetPivot += new Vector3(input.x, 0f, input.y) * speed * Time.deltaTime;
+                
+                // ИСПРАВЛЕНИЕ 2.4: Используем unscaledDeltaTime, чтобы камера работала на паузе
+                _targetPivot += new Vector3(input.x, 0f, input.y) * speed * Time.unscaledDeltaTime;
             }
         }
 
@@ -133,11 +129,8 @@ namespace KingdomsClone.CameraControl
             if (mouse == null) return;
             float scroll = mouse.scroll.ReadValue().y;
             if (Mathf.Abs(scroll) < 0.01f) return;
-            // 0 = близко, 1 = далеко. Скролл "вверх" (положительный) = приближаемся.
             _targetZoom = Mathf.Clamp01(_targetZoom - scroll * scrollSensitivity);
         }
-
-        // ---------- Bounds / Transform ----------
 
         private void ClampPivot()
         {
@@ -147,8 +140,9 @@ namespace KingdomsClone.CameraControl
 
         private void SmoothStep()
         {
-            _currentPivot = Vector3.SmoothDamp(_currentPivot, _targetPivot, ref _pivotVelocity, panSmoothTime);
-            _currentZoom = Mathf.SmoothDamp(_currentZoom, _targetZoom, ref _zoomVelocity, zoomSmoothTime);
+            // ИСПРАВЛЕНИЕ 2.4: Передаем Time.unscaledDeltaTime, чтобы SmoothDamp работал на паузе
+            _currentPivot = Vector3.SmoothDamp(_currentPivot, _targetPivot, ref _pivotVelocity, panSmoothTime, Mathf.Infinity, Time.unscaledDeltaTime);
+            _currentZoom = Mathf.SmoothDamp(_currentZoom, _targetZoom, ref _zoomVelocity, zoomSmoothTime, Mathf.Infinity, Time.unscaledDeltaTime);
         }
 
         private void ApplyTransform()
@@ -161,9 +155,6 @@ namespace KingdomsClone.CameraControl
             transform.rotation = rotation;
         }
 
-        // ---------- Public API ----------
-
-        /// <summary>Мгновенно переместить камеру в мировую точку (для дебаг-меню).</summary>
         public void TeleportTo(Vector3 worldPos)
         {
             _targetPivot = new Vector3(worldPos.x, 0f, worldPos.z);
@@ -174,15 +165,10 @@ namespace KingdomsClone.CameraControl
             Debug.Log($"[RTSCamera] Teleported to {_targetPivot}");
         }
 
-        /// <summary>Задать границы карты в мировых XZ-координатах.</summary>
         private void SetBounds(Vector2 min, Vector2 max)
         {
             mapMin = min;
             mapMax = max;
-
-            Vector2 center = (mapMin + mapMax) * 0.5f;
-            _currentPivot = _targetPivot = new Vector3(center.x, 0f, center.y);
-            _pivotVelocity = Vector3.zero;
         }
 
         private void OnGridGenerated(GridGeneratedEvent e)
@@ -194,11 +180,19 @@ namespace KingdomsClone.CameraControl
                     e.OriginWorldPosition.z + e.Height * e.CellSize
                 )
             );
+            
+            Vector3 startWorld = new Vector3(
+                e.StartLocation.x * e.CellSize + (e.CellSize * 0.5f) + e.OriginWorldPosition.x,
+                0f,
+                e.StartLocation.y * e.CellSize + (e.CellSize * 0.5f) + e.OriginWorldPosition.z
+            );
+            
+            _currentPivot = _targetPivot = startWorld;
+            _pivotVelocity = Vector3.zero;
+            
             ApplyTransform();
-            Debug.Log($"[RTSCamera] Grid bounds applied: {mapMin} .. {mapMax}");
+            Debug.Log($"[RTSCamera] Grid bounds applied. Centered on StartLocation: {e.StartLocation}");
         }
-
-        // ---------- Gizmos ----------
 
         private void OnDrawGizmosSelected()
         {

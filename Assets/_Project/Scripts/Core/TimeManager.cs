@@ -54,9 +54,18 @@ namespace KingdomsClone.Core
 
         private void OnGameStateChanged(GameStateChangedEvent e)
         {
-            if (e.NewState == GameState.Playing)      SetPaused(false);
-            else if (e.NewState == GameState.Paused)  SetPaused(true);
-            // Menu/Boot — не трогаем (решим, когда появится реальное меню)
+            // ИСПРАВЛЕНИЕ 2.1: Останавливаем время в Меню и при загрузке (Boot)
+            switch (e.NewState)
+            {
+                case GameState.Playing:
+                    SetPaused(false);
+                    break;
+                case GameState.Paused:
+                case GameState.Menu:
+                case GameState.Boot:
+                    SetPaused(true);
+                    break;
+            }
         }
 
         private void Update()
@@ -66,28 +75,46 @@ namespace KingdomsClone.Core
             float dt = Time.deltaTime;  // уже масштабирован через Time.timeScale
             _gameTimeSeconds += dt;
 
+            // ИСПРАВЛЕНИЕ 2.3: Вынесли логику тиков в отдельный метод
+            ProcessTicks(dt);
+        }
+
+        /// <summary>
+        /// Общий метод для обработки тиков и смены дней.
+        /// Используется как в Update (естественное время), так и в AddGameSeconds (читы).
+        /// </summary>
+        private void ProcessTicks(float deltaSeconds)
+        {
             // Тики: 4 раза в секунду игрового времени.
-            // ВАЖНО: на скорости x10 и выше dt может быть больше TickInterval (0.25),
-            // поэтому в одном кадре может вылететь несколько тиков подряд. Цикл while это покрывает.
-            _tickAccumulator += dt;
+            // На x10+ dt может быть больше 0.25, цикл while обработает несколько тиков за кадр.
+            _tickAccumulator += deltaSeconds;
             while (_tickAccumulator >= TickInterval)
             {
                 _tickAccumulator -= TickInterval;
                 EventBus.Publish(new GameTickEvent { DeltaGameSeconds = TickInterval });
             }
 
-            // Смена дня. На x10 день может смениться не по одному — цикл это покроет.
-            int day = CurrentDay;
-            while (day != _lastDay)
+            // Смена дня
+            int currentDay = CurrentDay;
+            while (currentDay != _lastDay)
             {
                 _lastDay++;
-                EventBus.Publish(new DayChangedEvent
-                {
-                    NewDay = _lastDay,
-                    Year = Year,
-                    Season = CurrentSeason
-                });
+                PublishDayChanged(_lastDay); // ИСПРАВЛЕНИЕ 2.2
             }
+        }
+
+        /// <summary>
+        /// Публикует событие смены дня, вычисляя год и сезон СТРОГО от переданного дня.
+        /// Это гарантирует правильные данные, даже если время перемотали на 100 дней вперед.
+        /// </summary>
+        private void PublishDayChanged(int day)
+        {
+            EventBus.Publish(new DayChangedEvent
+            {
+                NewDay = day,
+                Year = ((day - 1) / (DaysPerSeason * 4)) + 1,
+                Season = (Season)(((day - 1) / DaysPerSeason) % 4)
+            });
         }
 
         // ---------- Публичный API ----------
@@ -127,23 +154,17 @@ namespace KingdomsClone.Core
             Time.timeScale = EffectiveSpeed;
         }
 
-        /// <summary>Дебаг: промотать игровое время вперёд. Для тестов и читов.</summary>
+        /// <summary>
+        /// Дебаг: промотать игровое время вперёд. Для тестов и читов.
+        /// Теперь корректно публикует GameTickEvent и DayChangedEvent (Исправление 2.3).
+        /// </summary>
         public void AddGameSeconds(float seconds)
         {
             if (seconds <= 0f) return;
             _gameTimeSeconds += seconds;
             
-            int day = CurrentDay;
-            while (day != _lastDay)
-            {
-                _lastDay++;
-                EventBus.Publish(new DayChangedEvent
-                {
-                    NewDay = _lastDay,
-                    Year = Year,
-                    Season = CurrentSeason
-                });
-            }
+            // Перематываем время с учетом всех прошедших тиков
+            ProcessTicks(seconds); 
         }
     }
 }

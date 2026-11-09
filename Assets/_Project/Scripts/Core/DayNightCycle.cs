@@ -3,22 +3,27 @@ using KingdomsClone.Core.Events;
 
 namespace KingdomsClone.Core
 {
-    /// <summary>
-    /// Крутит Directional Light и RenderSettings по DayProgress из TimeManager.
-    /// Обновляется на GameTickEvent (4 раза в секунду).
-    /// [ExecuteAlways] — чтобы в редакторе работали ContextMenu-превью без Play.
-    /// </summary>
     [ExecuteAlways]
     public class DayNightCycle : MonoBehaviour
     {
         [Header("Sun / Moon")]
         [SerializeField] private Light sun;
         [SerializeField] private Light moon; // опционально
-        [SerializeField] private float sunTilt = 30f; // наклон орбиты, чтобы тени не шли строго по осям
+        [SerializeField] private float sunTilt = 30f; 
 
         [Header("Gradients (0 = полночь, 0.5 = полдень, 1 = полночь)")]
         [SerializeField] private Gradient sunColor;
-        [SerializeField] private AnimationCurve sunIntensity = AnimationCurve.EaseInOut(0f, 0f, 0.5f, 1.2f);
+        
+        // ИСПРАВЛЕНИЕ 3.1: Правильная кривая с 5 точками. 
+        // 00:00 - 0.0 | 06:00 - 0.0 | 12:00 - 1.2 | 18:00 - 0.0 | 24:00 - 0.0
+        [SerializeField] private AnimationCurve sunIntensity = new AnimationCurve(
+            new Keyframe(0f, 0f), 
+            new Keyframe(0.25f, 0f), 
+            new Keyframe(0.5f, 1.2f), 
+            new Keyframe(0.75f, 0f), 
+            new Keyframe(1f, 0f)
+        );
+        
         [SerializeField] private Gradient ambientColor;
         [SerializeField] private Gradient fogColor;
 
@@ -50,7 +55,6 @@ namespace KingdomsClone.Core
             var tm = TimeManager.Instance;
             if (tm == null) return;
 
-            // t: 0 = полночь (00:00), 0.5 = полдень (12:00), 1 = полночь
             float t = tm.DayProgress;
             ApplyLighting(t);
         }
@@ -85,8 +89,6 @@ namespace KingdomsClone.Core
         }
 
         // ---------- Preview в редакторе (без Play) ----------
-        // ПКМ по компоненту в Inspector → ⋮ → выбрать время суток.
-
         [ContextMenu("Preview 00:00 (Midnight)")]
         private void PreviewMidnight() => ApplyLighting(0f);
 
