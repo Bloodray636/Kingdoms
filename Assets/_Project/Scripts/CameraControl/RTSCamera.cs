@@ -1,19 +1,22 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 using KingdomsClone.Core;
+using KingdomsClone.Grid;
 using KingdomsClone.Grid.Events;
 
 namespace KingdomsClone.CameraControl
 {
     /// <summary>
     /// RTS-камера: панорамирование (WASD + край экрана), зум колесом,
-    /// ограничение по границам карты (из GridSystem), плавность через SmoothDamp.
+    /// ограничение по границам карты, плавность через SmoothDamp.
+    /// Камера смотрит на "пивот" на земле (Y=0); пивот двигается, камера следует.
+    /// Автоматически подхватывает границы при генерации карты через GridGeneratedEvent.
     /// </summary>
     public class RTSCamera : MonoBehaviour
     {
         [Header("Panning")]
         [SerializeField] private float panSpeed = 30f;
-        [SerializeField] private float fastPanMultiplier = 2.5f; // Shift = быстрее
+        [SerializeField] private float fastPanMultiplier = 2.5f;
         [SerializeField] private float edgePanZonePixels = 15f;
         [SerializeField] private bool edgePanEnabled = true;
         [SerializeField] private float panSmoothTime = 0.15f;
@@ -27,9 +30,10 @@ namespace KingdomsClone.CameraControl
         [SerializeField] private float scrollSensitivity = 0.0015f;
         [SerializeField] private float zoomSmoothTime = 0.15f;
 
-        // Границы карты теперь заполняются автоматически из GridSystem
-        private Vector2 mapMin = new Vector2(0f, 0f);
-        private Vector2 mapMax = new Vector2(100f, 100f);
+        [Header("Map Bounds (XZ) — автозаполняется из GridSystem")]
+        [Tooltip("Если GridSystem есть в сцене — эти значения перезапишутся из события GridGeneratedEvent.")]
+        [SerializeField] private Vector2 mapMin = new Vector2(-50f, -50f);
+        [SerializeField] private Vector2 mapMax = new Vector2(50f, 50f);
 
         private Vector3 _currentPivot;
         private Vector3 _targetPivot;
@@ -38,15 +42,7 @@ namespace KingdomsClone.CameraControl
         private float _targetZoom;
         private float _zoomVelocity;
 
-        private void Start()
-        {
-            _currentZoom = _targetZoom = Mathf.Clamp01(initialZoom);
-            
-            // Инициализируем пивот по центру дефолтных границ, пока GridSystem не прислал реальные
-            Vector2 center = (mapMin + mapMax) * 0.5f;
-            _currentPivot = _targetPivot = new Vector3(center.x, 0f, center.y);
-            ApplyTransform();
-        }
+        // ---------- Lifecycle ----------
 
         private void OnEnable()
         {
@@ -58,21 +54,25 @@ namespace KingdomsClone.CameraControl
             EventBus.Unsubscribe<GridGeneratedEvent>(OnGridGenerated);
         }
 
-        private void OnGridGenerated(GridGeneratedEvent e)
+        private void Start()
         {
-            // Получаем реальные размеры карты из GridSystem
-            mapMin = new Vector2(e.OriginWorldPosition.x, e.OriginWorldPosition.z);
-            mapMax = new Vector2(
-                e.OriginWorldPosition.x + e.Width * e.CellSize, 
-                e.OriginWorldPosition.z + e.Height * e.CellSize
-            );
-            
-            // Сразу ставим камеру в центр новой карты
-            Vector2 center = (mapMin + mapMax) * 0.5f;
-            _currentPivot = _targetPivot = new Vector3(center.x, 0f, center.y);
-            ApplyTransform();
-            
-            Debug.Log($"[RTSCamera] Границы обновлены: {mapMin} - {mapMax}");
+            _currentZoom = _targetZoom = Mathf.Clamp01(initialZoom);
+
+            // Если сетка УЖЕ сгенерирована до того, как мы стартовали — забираем границы сразу.
+            // (защита от race condition: GridSystem.Start мог отработать раньше нашего OnEnable)
+            if (GridSystem.Instance != null && GridSystem.Instance.Grid != null)
+            {
+                var g = GridSystem.Instance;
+                SetBounds(
+                    new Vector2(0f, 0f),
+                    new Vector2(g.Width * g.CellSize, g.Height * g.CellSize)
+                );
+            }
+            else
+            {
+                // Иначе остаёмся на дефолтных границах из инспектора
+                SetBounds(mapMin, mapMax);
+            }
         }
 
         private void Update()
@@ -83,6 +83,8 @@ namespace KingdomsClone.CameraControl
             SmoothStep();
             ApplyTransform();
         }
+
+        // ---------- Input ----------
 
         private void HandlePanInput()
         {
@@ -135,6 +137,8 @@ namespace KingdomsClone.CameraControl
             _targetZoom = Mathf.Clamp01(_targetZoom - scroll * scrollSensitivity);
         }
 
+        // ---------- Bounds / Transform ----------
+
         private void ClampPivot()
         {
             _targetPivot.x = Mathf.Clamp(_targetPivot.x, mapMin.x, mapMax.x);
@@ -153,28 +157,51 @@ namespace KingdomsClone.CameraControl
             float pitch = Mathf.Lerp(minPitch, maxPitch, _currentZoom);
 
             Quaternion rotation = Quaternion.Euler(pitch, 0f, 0f);
-            // Камера позади и над пивотом по направлению rotation * back
             transform.position = _currentPivot + rotation * Vector3.back * distance;
             transform.rotation = rotation;
         }
 
-        // ---------- Публичный API (для дебаг-меню и геймплея) ----------
+        // ---------- Public API ----------
 
-        /// <summary>
-        /// Мгновенно перемещает камеру в указанную мировую точку (по XZ).
-        /// </summary>
+        /// <summary>Мгновенно переместить камеру в мировую точку (для дебаг-меню).</summary>
         public void TeleportTo(Vector3 worldPos)
         {
             _targetPivot = new Vector3(worldPos.x, 0f, worldPos.z);
             _currentPivot = _targetPivot;
+            _pivotVelocity = Vector3.zero;
             ClampPivot();
             ApplyTransform();
-            Debug.Log($"[RTSCamera] Телепорт в {_targetPivot}");
+            Debug.Log($"[RTSCamera] Teleported to {_targetPivot}");
         }
+
+        /// <summary>Задать границы карты в мировых XZ-координатах.</summary>
+        private void SetBounds(Vector2 min, Vector2 max)
+        {
+            mapMin = min;
+            mapMax = max;
+
+            Vector2 center = (mapMin + mapMax) * 0.5f;
+            _currentPivot = _targetPivot = new Vector3(center.x, 0f, center.y);
+            _pivotVelocity = Vector3.zero;
+        }
+
+        private void OnGridGenerated(GridGeneratedEvent e)
+        {
+            SetBounds(
+                new Vector2(e.OriginWorldPosition.x, e.OriginWorldPosition.z),
+                new Vector2(
+                    e.OriginWorldPosition.x + e.Width * e.CellSize,
+                    e.OriginWorldPosition.z + e.Height * e.CellSize
+                )
+            );
+            ApplyTransform();
+            Debug.Log($"[RTSCamera] Grid bounds applied: {mapMin} .. {mapMax}");
+        }
+
+        // ---------- Gizmos ----------
 
         private void OnDrawGizmosSelected()
         {
-            // Границы карты (теперь они обновляются динамически)
             Gizmos.color = Color.yellow;
             Vector3 p1 = new Vector3(mapMin.x, 0f, mapMin.y);
             Vector3 p2 = new Vector3(mapMax.x, 0f, mapMin.y);
@@ -183,7 +210,6 @@ namespace KingdomsClone.CameraControl
             Gizmos.DrawLine(p1, p2); Gizmos.DrawLine(p2, p3);
             Gizmos.DrawLine(p3, p4); Gizmos.DrawLine(p4, p1);
 
-            // Текущий пивот
             if (Application.isPlaying)
             {
                 Gizmos.color = Color.cyan;

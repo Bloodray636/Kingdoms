@@ -37,23 +37,38 @@ namespace KingdomsClone.Grid
             GenerateEmptyGrid();
         }
 
-        /// <summary>
-        /// Пока генерирует просто ровную траву. Задача 1.4 заменит это на Perlin Noise.
-        /// </summary>
+        [Header("Noise Settings")]
+        [SerializeField] private float noiseScale = 6f;
+        [SerializeField] private int mapSeed = 12345;
+
         private void GenerateEmptyGrid()
         {
             _grid = new Cell[width, height];
+            System.Random prng = new System.Random(mapSeed);
+            float offsetX = prng.Next(-10000, 10000);
+            float offsetY = prng.Next(-10000, 10000);
+
             for (int x = 0; x < width; x++)
             {
                 for (int y = 0; y < height; y++)
                 {
-                    _grid[x, y] = new Cell(x, y, TileType.Grass);
+                    float nx = (float)x / width * noiseScale + offsetX;
+                    float ny = (float)y / height * noiseScale + offsetY;
+                    float noise = Mathf.PerlinNoise(nx, ny);
+
+                    TileType type = TileType.Grass;
+                    if (noise < 0.35f) type = TileType.Water;
+                    else if (noise < 0.42f) type = TileType.Fertile;
+                    else if (noise > 0.65f) type = TileType.Forest;
+                    else if (noise > 0.55f)
+                    {
+                        if (prng.NextDouble() < 0.3) type = TileType.Rock;
+                    }
+
+                    _grid[x, y] = new Cell(x, y, type);
                 }
             }
 
-            Debug.Log($"[GridSystem] Сгенерирована карта {width}x{height}");
-
-            // Сообщаем всем, что сетка готова (камера это подхватит)
             EventBus.Publish(new GridGeneratedEvent
             {
                 Width = width,
