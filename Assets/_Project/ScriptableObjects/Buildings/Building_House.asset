@@ -24,7 +24,7 @@ MonoBehaviour:
   storageCapacity: 0
   buildTimeSeconds: 5
   buildCost:
-  - resource: {fileID: 11400000, guid: e779cbd3cfc44d4498fd431bcdaaa070, type: 2}
+  - resource: {fileID: 11400000, guid: ac161cb7f7d3d0242883de59bfa61b93, type: 2}
     amount: 10
   production:
     inputs: []

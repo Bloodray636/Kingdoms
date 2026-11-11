@@ -21,7 +21,7 @@ namespace KingdomsClone.CameraControl
         [SerializeField] private float maxDistance = 150f;
         [SerializeField] private float minPitch = 45f;
         [SerializeField] private float maxPitch = 80f;
-        [SerializeField] private float scrollSensitivity = 0.0015f;
+        [SerializeField] private float scrollSensitivity = 0.05f;
         [SerializeField] private float zoomSmoothTime = 0.15f;
 
         [Header("Map Bounds (XZ) — автозаполняется из GridSystem")]
@@ -147,11 +147,27 @@ namespace KingdomsClone.CameraControl
 
         private void ApplyTransform()
         {
-            float distance = Mathf.Lerp(minDistance, maxDistance, _currentZoom);
             float pitch = Mathf.Lerp(minPitch, maxPitch, _currentZoom);
-
             Quaternion rotation = Quaternion.Euler(pitch, 0f, 0f);
-            transform.position = _currentPivot + rotation * Vector3.back * distance;
+
+            var cam = GetComponent<Camera>();
+            
+            if (cam != null && cam.orthographic)
+            {
+                // ДЛЯ ORTHOGRAPHIC: Меняем размер обзора, а не дистанцию
+                // 5 = сильно приближено, 40 = видно весь остров
+                cam.orthographicSize = Mathf.Lerp(5f, 40f, _currentZoom);
+                
+                // Камеру держим на фиксированной высоте, чтобы она не врезалась в землю
+                transform.position = _currentPivot + rotation * Vector3.back * 50f;
+            }
+            else
+            {
+                // ДЛЯ PERSPECTIVE: Старая логика (двигаем камеру назад)
+                float distance = Mathf.Lerp(minDistance, maxDistance, _currentZoom);
+                transform.position = _currentPivot + rotation * Vector3.back * distance;
+            }
+
             transform.rotation = rotation;
         }
 

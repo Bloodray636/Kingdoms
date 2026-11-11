@@ -2,6 +2,8 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using KingdomsClone.CameraControl;
 using KingdomsClone.Core.Events;
+using KingdomsClone.Data;
+using KingdomsClone.Gameplay;
 using KingdomsClone.Grid;
 
 namespace KingdomsClone.Core.DebugTools
@@ -12,20 +14,11 @@ namespace KingdomsClone.Core.DebugTools
         private RTSCamera _camera;
         private string _seedInput = "";
 
-        private void Start()
-        {
-            Debug.Log("[DebugMenu] Скрипт загружен. Нажми клавишу ` (тильда/Ё) для открытия меню.");
-        }
-
         private void Update()
         {
             var kb = Keyboard.current;
-            if (kb == null) return;
-
-            if (kb.backquoteKey.wasPressedThisFrame)
-            {
+            if (kb != null && kb.backquoteKey.wasPressedThisFrame)
                 _isOpen = !_isOpen;
-            }
         }
 
         private void OnGUI()
@@ -33,7 +26,6 @@ namespace KingdomsClone.Core.DebugTools
             var tm = TimeManager.Instance;
             var grid = GridSystem.Instance;
 
-            // --- Верхний правый угол: всегда видимая инфа ---
             if (tm != null)
             {
                 string info = $"Day {tm.CurrentDay} ({tm.CurrentSeason}) | Speed: {tm.EffectiveSpeed:F1}x";
@@ -42,9 +34,8 @@ namespace KingdomsClone.Core.DebugTools
 
             if (!_isOpen) return;
 
-            // --- Основное окно ---
-            GUI.Box(new Rect(10, 10, 340, 480), "🛠️ DEBUG MENU (`)");
-            GUILayout.BeginArea(new Rect(20, 40, 320, 440));
+            GUI.Box(new Rect(10, 10, 340, 520), "🛠️ DEBUG MENU (`)");
+            GUILayout.BeginArea(new Rect(20, 40, 320, 480));
 
             // 1. Ресурсы
             GUILayout.Label("--- Resources ---");
@@ -56,54 +47,31 @@ namespace KingdomsClone.Core.DebugTools
 
             GUILayout.Space(10);
 
-            // 2. Генерация карты (НОВОЕ!)
+            // 3. Генерация карты
             GUILayout.Label("--- Map Generation ---");
             if (grid != null)
             {
                 GUILayout.Label($"Current Seed: {grid.CurrentSeed}");
-
-                if (GUILayout.Button("Random Map (Random Seed)"))
+                if (GUILayout.Button("Random Map"))
                 {
-                    int newSeed = UnityEngine.Random.Range(1, 999999);
-                    grid.RegenerateMap(newSeed);
+                    grid.RegenerateMap(UnityEngine.Random.Range(1, 999999));
                 }
-
                 GUILayout.BeginHorizontal();
                 GUILayout.Label("Seed:", GUILayout.Width(40));
                 _seedInput = GUILayout.TextField(_seedInput, GUILayout.Width(120));
-                if (GUILayout.Button("Apply Seed"))
+                if (GUILayout.Button("Apply"))
                 {
-                    if (int.TryParse(_seedInput, out int parsedSeed))
-                    {
-                        grid.RegenerateMap(parsedSeed);
-                    }
-                    else
-                    {
-                        Debug.LogWarning($"[Debug] Некорректный сид: '{_seedInput}'");
-                    }
+                    if (int.TryParse(_seedInput, out int parsed))
+                        grid.RegenerateMap(parsed);
                 }
                 GUILayout.EndHorizontal();
-            }
-            else
-            {
-                GUILayout.Label("❌ GridSystem not found!");
-            }
-
-            GUILayout.Space(10);
-
-            // 3. Враги
-            GUILayout.Label("--- Enemies ---");
-            if (GUILayout.Button("Spawn Raid (Wave 1)"))
-            {
-                EventBus.Publish(new SpawnRaidRequestedEvent { WaveNumber = 1 });
-                Debug.Log("[Debug] SpawnRaidRequestedEvent published!");
             }
 
             GUILayout.Space(10);
 
             // 4. Камера
             GUILayout.Label("--- Camera ---");
-            if (GUILayout.Button("Teleport to Center (50,50)"))
+            if (GUILayout.Button("Teleport to Center"))
             {
                 if (_camera == null) _camera = FindObjectOfType<RTSCamera>();
                 if (_camera != null) _camera.TeleportTo(new Vector3(50f, 0f, 50f));
@@ -130,6 +98,19 @@ namespace KingdomsClone.Core.DebugTools
             GUILayout.EndHorizontal();
 
             GUILayout.EndArea();
+
+            // Показ ресурсов
+            var rm = ResourceManager.Instance;
+            var gd = GameDataSO.Instance;
+            if (rm != null && gd != null)
+            {
+                GUILayout.Label("--- Current Resources ---");
+                foreach (var res in gd.Resources)
+                {
+                    GUILayout.Label($"{res.DisplayName}: {rm.GetAmount(res)}");
+                }
+                GUILayout.Space(10);
+            }
         }
     }
 }

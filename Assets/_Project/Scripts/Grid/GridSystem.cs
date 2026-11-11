@@ -103,6 +103,37 @@ namespace KingdomsClone.Grid
             if (!IsValidCell(x, y)) return null;
             return _grid[x, y];
         }
+        
+        /// <summary>
+        /// Можно ли строить на клетке: валидна, не вода, не занята.
+        /// </summary>
+        public bool IsCellFreeForBuilding(int x, int y)
+        {
+            if (!IsValidCell(x, y)) return false;
+            Cell c = GetCell(x, y);
+            if (c == null) return false;
+            return c.IsBuildable() && c.IsFree();
+        }
+
+        /// <summary>
+        /// Зарегистрировать здание на клетке.
+        /// </summary>
+        public void RegisterBuilding(int x, int y, GameObject building)
+        {
+            if (!IsValidCell(x, y)) return;
+            var cell = GetCell(x, y);
+            if (cell != null) cell.OccupiedBy = building;
+        }
+
+        /// <summary>
+        /// Убрать здание с клетки (при сносе/разрушении).
+        /// </summary>
+        public void UnregisterBuilding(int x, int y)
+        {
+            if (!IsValidCell(x, y)) return;
+            var cell = GetCell(x, y);
+            if (cell != null) cell.OccupiedBy = null;
+        }
 
         public bool IsFishingZone(int x, int y)
         {

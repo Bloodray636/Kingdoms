@@ -119,6 +119,55 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
+--- !u!1 &50264403
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 50264405}
+  - component: {fileID: 50264404}
+  m_Layer: 0
+  m_Name: BuildingUIManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &50264404
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 50264403}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 13acb6402b480254abc337fe8127d8f7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::KingdomsClone.UI.BuildingUIManager
+  placer: {fileID: 371315477}
+  panelHeight: 220
+  categoryBarHeight: 42
+  buildingButtonSize: 110
+  spacing: 8
+--- !u!4 &50264405
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 50264403}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 53.23795, y: 0.37375, z: 54.49978}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &247195871
 GameObject:
   m_ObjectHideFlags: 0
@@ -289,7 +338,7 @@ MonoBehaviour:
   m_VolumeTrigger: {fileID: 0}
   m_VolumeFrameworkUpdateModeOption: 2
   m_RenderPostProcessing: 1
-  m_Antialiasing: 0
+  m_Antialiasing: 2
   m_AntialiasingQuality: 2
   m_StopNaN: 0
   m_Dithering: 0
@@ -330,11 +379,58 @@ MonoBehaviour:
   minDistance: 30
   maxDistance: 200
   minPitch: 45
-  maxPitch: 80
-  scrollSensitivity: 0.0015
-  zoomSmoothTime: 0.15
+  maxPitch: 70
+  scrollSensitivity: 0.05
+  zoomSmoothTime: 0.5
   mapMin: {x: 0, y: 0}
   mapMax: {x: 100, y: 100}
+--- !u!1 &371315476
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 371315478}
+  - component: {fileID: 371315477}
+  m_Layer: 0
+  m_Name: BuildingPlacer
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &371315477
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 371315476}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dbcb79837f471aa41b8e1015a4e1352d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::KingdomsClone.Gameplay.BuildingPlacer
+  validMaterial: {fileID: 2100000, guid: 50fa7660f537a544ba28d452e51d2510, type: 2}
+  invalidMaterial: {fileID: 2100000, guid: 1374b8261d436634f85c853f3a300329, type: 2}
+  noMoneyMaterial: {fileID: 2100000, guid: d9071fb1d1905114f8a65136786aa0bf, type: 2}
+--- !u!4 &371315478
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 371315476}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 53.23795, y: 0.37375, z: 54.49978}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &410087039
 GameObject:
   m_ObjectHideFlags: 0
@@ -649,6 +745,57 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1310965711
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1310965713}
+  - component: {fileID: 1310965712}
+  m_Layer: 0
+  m_Name: MapDecorator
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1310965712
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1310965711}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e939c89253c97fb4daf4453f9011bef1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::KingdomsClone.Grid.MapDecorator
+  waterPrefab: {fileID: 5978288492397453867, guid: daf73246767a94040ac08eb45a0adb7d, type: 3}
+  treePrefab: {fileID: 302470079471115919, guid: ab7abe8310363f940bcae65b60f663f5, type: 3}
+  rockPrefab: {fileID: 2653872349688047686, guid: bf3a7080adb9083448825adb1ee86834, type: 3}
+  waterYOffset: -0.1
+  treeYOffset: 0
+  treesPerForestCell: 1
+  treeSpread: 0.4
+--- !u!4 &1310965713
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1310965711}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -0.00001, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1376863330
 GameObject:
   m_ObjectHideFlags: 0
@@ -936,7 +1083,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::KingdomsClone.Grid.GridVisualizer
   highlightMaterial: {fileID: 2100000, guid: d477bb7189f95b14da52c88e5b8fe106, type: 2}
   fishingMarkerMaterial: {fileID: 2100000, guid: d81862b4024ba3847ace10d0f8424d7f, type: 2}
-  showLines: 1
+  showLines: 0
   lineColor: {r: 1, g: 1, b: 1, a: 1}
   lineStep: 5
 --- !u!4 &1705802500
@@ -1014,3 +1161,6 @@ SceneRoots:
   - {fileID: 579501473}
   - {fileID: 247195873}
   - {fileID: 1705802500}
+  - {fileID: 1310965713}
+  - {fileID: 371315478}
+  - {fileID: 50264405}
