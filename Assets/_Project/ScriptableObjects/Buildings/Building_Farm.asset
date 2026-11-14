@@ -13,26 +13,24 @@ MonoBehaviour:
   m_Name: Building_Farm
   m_EditorClassIdentifier: Assembly-CSharp::KingdomsClone.Data.BuildingDataSO
   id: Building_Farm
-  displayName: 
+  displayName: "\u0424\u0435\u0440\u043C\u0430"
   description: 
   icon: {fileID: 0}
   prefab: {fileID: 0}
   size: {x: 3, y: 3}
   category: 1
-  maxHealth: 120
+  maxHealth: 100
   workerSlots: 1
   storageCapacity: 0
   buildTimeSeconds: 5
   buildCost:
   - resource: {fileID: 11400000, guid: ac161cb7f7d3d0242883de59bfa61b93, type: 2}
-    amount: 15
+    amount: 20
   production:
     inputs: []
     outputs:
-    - resource: {fileID: 0}
-      amount: 0
-    - resource: {fileID: 0}
-      amount: 0
-    cycleSeconds: 20
+    - resource: {fileID: 11400000, guid: ac161cb7f7d3d0242883de59bfa61b93, type: 2}
+      amount: 2
+    cycleSeconds: 15
   happinessBonus: 0
   happinessRadius: 0

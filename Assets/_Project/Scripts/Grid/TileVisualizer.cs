@@ -10,7 +10,10 @@ namespace KingdomsClone.Grid
         [Header("Visual Settings")]
         [SerializeField] private Material landMaterial;
         [SerializeField] private Material waterMaterial;
-        [SerializeField] private float yOffset = 0.0f; // Земля плоская
+
+        [Tooltip("Перекрытие тайлов. 1.0 = без наложения (единый меш, дырок не будет). " +
+                 "Больше 1 — наложение, может дать Z-fighting на стыках.")]
+        [SerializeField] private float overlapFactor = 1.0f;
 
         [Header("Colors per Type")]
         [SerializeField] private Color grassColor    = new Color(0.4f, 0.7f, 0.3f);
@@ -18,10 +21,15 @@ namespace KingdomsClone.Grid
         [SerializeField] private Color rockColor     = new Color(0.5f, 0.5f, 0.5f);
         [SerializeField] private Color waterColor    = new Color(0.2f, 0.5f, 0.8f);
         [SerializeField] private Color fertileColor  = new Color(0.8f, 0.7f, 0.4f);
+        [SerializeField] private Color roadColor     = new Color(0.35f, 0.30f, 0.25f);
 
         private Dictionary<TileType, Color> _colorDict;
+
+        // Ссылки на GameObject И на Mesh отдельно — для корректного Destroy
         private GameObject _landMeshObj;
         private GameObject _waterMeshObj;
+        private Mesh _landMesh;
+        private Mesh _waterMesh;
 
         private void Awake()
         {
@@ -32,6 +40,7 @@ namespace KingdomsClone.Grid
                 { TileType.Rock,    rockColor    },
                 { TileType.Water,   waterColor   },
                 { TileType.Fertile, fertileColor },
+                { TileType.Road,    roadColor    },
             };
         }
 
@@ -47,29 +56,45 @@ namespace KingdomsClone.Grid
             EventBus.Unsubscribe<GridGeneratedEvent>(OnGridGenerated);
         }
 
-        private void OnGridGenerated(GridGeneratedEvent e)
+        private void OnDestroy()
         {
-            GenerateMeshes();
+            CleanupMeshes();
+        }
+
+        private void OnGridGenerated(GridGeneratedEvent e) => GenerateMeshes();
+
+        /// <summary>
+        /// Освобождает и GameObject, и сам Mesh — иначе утечка в памяти при перегенерации.
+        /// </summary>
+        private void CleanupMeshes()
+        {
+            if (_landMesh != null)  { Destroy(_landMesh);  _landMesh = null; }
+            if (_waterMesh != null) { Destroy(_waterMesh); _waterMesh = null; }
+            if (_landMeshObj != null)  { Destroy(_landMeshObj);  _landMeshObj = null; }
+            if (_waterMeshObj != null) { Destroy(_waterMeshObj); _waterMeshObj = null; }
         }
 
         private void GenerateMeshes()
         {
             var grid = GridSystem.Instance;
             if (grid == null || grid.Grid == null) return;
+            if (landMaterial == null || waterMaterial == null)
+            {
+                Debug.LogError("[TileVisualizer] Не назначены материалы (Land или Water)!");
+                return;
+            }
 
-            if (_landMeshObj != null) Destroy(_landMeshObj);
-            if (_waterMeshObj != null) Destroy(_waterMeshObj);
+            CleanupMeshes();
 
-            List<Vector3> landVerts = new List<Vector3>();
-            List<int> landTris = new List<int>();
-            List<Color> landColors = new List<Color>();
+            var landVerts = new List<Vector3>();
+            var landTris = new List<int>();
+            var landColors = new List<Color>();
 
-            List<Vector3> waterVerts = new List<Vector3>();
-            List<int> waterTris = new List<int>();
-            List<Color> waterColors = new List<Color>();
+            var waterVerts = new List<Vector3>();
+            var waterTris = new List<int>();
+            var waterColors = new List<Color>();
 
-            // Делаем квадрат чуть больше 1х1 (0.505), чтобы не было щелей
-            float halfSize = 0.505f;
+            float halfSize = grid.CellSize * 0.5f * overlapFactor;
 
             for (int x = 0; x < grid.Width; x++)
             {
@@ -78,70 +103,84 @@ namespace KingdomsClone.Grid
                     Cell cell = grid.GetCell(x, y);
                     if (cell == null) continue;
 
-                    // ВСЕГДА ПЛОСКО (y = 0)
-                    float yPos = yOffset; 
-                    Color c = _colorDict[cell.Type];
+                    // ФИКС 2.4: правильная трансформация в локальное пространство визуализатора.
+                    // Работает независимо от позиции/поворота/масштаба визуализатора.
+                    Vector3 worldCenter = grid.CellToWorld(x, y);
+                    worldCenter.y = grid.GetSurfaceY(x, y);
+                    Vector3 localCenter = transform.InverseTransformPoint(worldCenter);
 
-                    // Координаты для одного квадрата
-                    Vector3 p0 = new Vector3(x + 0.5f - halfSize, yPos, y + 0.5f - halfSize);
-                    Vector3 p1 = new Vector3(x + 0.5f - halfSize, yPos, y + 0.5f + halfSize);
-                    Vector3 p2 = new Vector3(x + 0.5f + halfSize, yPos, y + 0.5f - halfSize);
-                    Vector3 p3 = new Vector3(x + 0.5f + halfSize, yPos, y + 0.5f + halfSize);
+                    float lx = localCenter.x;
+                    float ly = localCenter.y;
+                    float lz = localCenter.z;
+
+                    Vector3 p0 = new Vector3(lx - halfSize, ly, lz - halfSize);
+                    Vector3 p1 = new Vector3(lx - halfSize, ly, lz + halfSize);
+                    Vector3 p2 = new Vector3(lx + halfSize, ly, lz - halfSize);
+                    Vector3 p3 = new Vector3(lx + halfSize, ly, lz + halfSize);
+
+                    if (!_colorDict.TryGetValue(cell.Type, out Color c))
+                    {
+                        Debug.LogWarning($"[TileVisualizer] Нет цвета для типа {cell.Type}, использую magenta. Добавь в словарь!");
+                        c = Color.magenta;
+                    }
 
                     if (cell.Type == TileType.Water)
                     {
-                        int startIndex = waterVerts.Count;
+                        int s = waterVerts.Count;
                         waterVerts.Add(p0); waterVerts.Add(p1); waterVerts.Add(p2); waterVerts.Add(p3);
                         waterColors.Add(c); waterColors.Add(c); waterColors.Add(c); waterColors.Add(c);
-                        
-                        // Треугольники смотрят вверх
-                        waterTris.Add(startIndex); waterTris.Add(startIndex + 1); waterTris.Add(startIndex + 2);
-                        waterTris.Add(startIndex + 1); waterTris.Add(startIndex + 3); waterTris.Add(startIndex + 2);
+                        waterTris.Add(s);     waterTris.Add(s + 1); waterTris.Add(s + 2);
+                        waterTris.Add(s + 1); waterTris.Add(s + 3); waterTris.Add(s + 2);
                     }
                     else
                     {
-                        int startIndex = landVerts.Count;
+                        int s = landVerts.Count;
                         landVerts.Add(p0); landVerts.Add(p1); landVerts.Add(p2); landVerts.Add(p3);
                         landColors.Add(c); landColors.Add(c); landColors.Add(c); landColors.Add(c);
-                        
-                        // Треугольники смотрят вверх
-                        landTris.Add(startIndex); landTris.Add(startIndex + 1); landTris.Add(startIndex + 2);
-                        landTris.Add(startIndex + 1); landTris.Add(startIndex + 3); landTris.Add(startIndex + 2);
+                        landTris.Add(s);     landTris.Add(s + 1); landTris.Add(s + 2);
+                        landTris.Add(s + 1); landTris.Add(s + 3); landTris.Add(s + 2);
                     }
                 }
             }
 
-            _landMeshObj = CreateMeshObject("LandMesh", landVerts, landTris, landColors, landMaterial);
-            _waterMeshObj = CreateMeshObject("WaterMesh", waterVerts, waterTris, waterColors, waterMaterial);
+            _landMeshObj  = CreateMeshObject("LandMesh",  landVerts,  landTris,  landColors,  landMaterial,  out _landMesh);
+            _waterMeshObj = CreateMeshObject("WaterMesh", waterVerts, waterTris, waterColors, waterMaterial, out _waterMesh);
 
-            Debug.Log("[TileVisualizer] Плоский меш сгенерирован!");
+            Debug.Log($"[TileVisualizer] Меш сгенерирован. Тайлов: земля={landVerts.Count / 4}, вода={waterVerts.Count / 4}, " +
+                      $"CellSize={grid.CellSize}, Origin={grid.OriginPosition}");
         }
 
-        private GameObject CreateMeshObject(string name, List<Vector3> verts, List<int> tris, List<Color> colors, Material mat)
+        private GameObject CreateMeshObject(string name, List<Vector3> verts, List<int> tris, List<Color> colors,
+            Material mat, out Mesh outMesh)
         {
+            outMesh = null;
             if (verts.Count == 0) return null;
 
-            GameObject obj = new GameObject(name);
+            var obj = new GameObject(name);
             obj.transform.SetParent(transform);
+            // Вершины уже в локальном пространстве визуализатора — обнуляем трансформ
+            obj.transform.localPosition = Vector3.zero;
+            obj.transform.localRotation = Quaternion.identity;
+            obj.transform.localScale = Vector3.one;
 
-            MeshFilter mf = obj.AddComponent<MeshFilter>();
-            MeshRenderer mr = obj.AddComponent<MeshRenderer>();
+            var mf = obj.AddComponent<MeshFilter>();
+            var mr = obj.AddComponent<MeshRenderer>();
             mr.sharedMaterial = mat;
 
-            Mesh mesh = new Mesh();
+            var mesh = new Mesh();
             mesh.name = name;
-            mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32; 
-            
+            mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
             mesh.SetVertices(verts);
             mesh.SetTriangles(tris, 0);
             mesh.SetColors(colors);
-            
-            // Жестко задаем нормали вверх (чтобы не было странного освещения)
-            Vector3[] normals = new Vector3[verts.Count];
+
+            var normals = new Vector3[verts.Count];
             for (int i = 0; i < normals.Length; i++) normals[i] = Vector3.up;
             mesh.normals = normals;
 
             mf.sharedMesh = mesh;
+            outMesh = mesh;
+
             return obj;
         }
     }

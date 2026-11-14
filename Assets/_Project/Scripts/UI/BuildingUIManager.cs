@@ -15,6 +15,7 @@ namespace KingdomsClone.UI
 
         [Header("References")]
         [SerializeField] private BuildingPlacer placer;
+        [SerializeField] private BuildingDemolisher demolisher;
 
         [Header("Layout")]
         [SerializeField] private float panelHeight = 220f;
@@ -43,6 +44,7 @@ namespace KingdomsClone.UI
             BuildingCategory.Happiness,
             BuildingCategory.Defense,
             BuildingCategory.Storage,
+            BuildingCategory.Special,
         };
 
         private static readonly Dictionary<BuildingCategory, string> _categoryLabels = new()
@@ -52,6 +54,7 @@ namespace KingdomsClone.UI
             { BuildingCategory.Happiness,  "☺ Счастье" },
             { BuildingCategory.Defense,    "🛡 Оборона" },
             { BuildingCategory.Storage,    "📦 Склады" },
+            { BuildingCategory.Special,    "⭐ Специальные" },
         };
 
         private void Awake()
@@ -65,14 +68,16 @@ namespace KingdomsClone.UI
             _instance = this;
 
             if (placer == null) placer = FindObjectOfType<BuildingPlacer>();
+            if (demolisher == null) demolisher = FindObjectOfType<BuildingDemolisher>();
+
             if (placer == null) Debug.LogError("[BuildingUIManager] BuildingPlacer НЕ НАЙДЕН!");
-            else Debug.Log("[BuildingUIManager] placer найден: " + placer.name);
+            if (demolisher == null) Debug.LogError("[BuildingUIManager] BuildingDemolisher НЕ НАЙДЕН!");
 
             _font = LoadFont();
             EnsureEventSystem();
             BuildUI();
 
-            Debug.Log($"[BuildingUIManager] UI построен. Panel={_panel.name}, Toggle={_toggleBtnGo.name}");
+            Debug.Log("[BuildingUIManager] UI построен.");
         }
 
         private void OnDestroy()
@@ -83,10 +88,13 @@ namespace KingdomsClone.UI
         private void Update()
         {
             var kb = UnityEngine.InputSystem.Keyboard.current;
-            if (kb != null && kb.bKey.wasPressedThisFrame)
-            {
+            if (kb == null) return;
+
+            if (kb.bKey.wasPressedThisFrame)
                 TogglePanel();
-            }
+
+            if (kb.xKey.wasPressedThisFrame)
+                OnDemolishClicked();
         }
 
         private static Font LoadFont()
@@ -99,15 +107,8 @@ namespace KingdomsClone.UI
 
         private void EnsureEventSystem()
         {
-            var existing = FindObjectOfType<EventSystem>();
-            if (existing != null)
-            {
-                Debug.Log($"[BuildingUIManager] EventSystem уже есть: {existing.name}");
-                return;
-            }
-
-            var es = new GameObject("EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
-            Debug.Log("[BuildingUIManager] Создан EventSystem с InputSystemUIInputModule");
+            if (FindObjectOfType<EventSystem>() != null) return;
+            new GameObject("EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
         }
 
         // =====================  ПОСТРОЕНИЕ UI  =====================
@@ -126,7 +127,7 @@ namespace KingdomsClone.UI
             scaler.referenceResolution = new Vector2(1920, 1080);
             scaler.matchWidthOrHeight = 0.5f;
 
-            // ---------- Основная панель (снизу) ----------
+            // ---------- Основная панель ----------
             _panel = new GameObject("BottomPanel", typeof(RectTransform), typeof(Image));
             _panel.transform.SetParent(_canvas.transform, false);
             var panelRect = _panel.GetComponent<RectTransform>();
@@ -137,7 +138,7 @@ namespace KingdomsClone.UI
             panelRect.anchoredPosition = Vector2.zero;
             _panel.GetComponent<Image>().color = new Color(0.07f, 0.08f, 0.11f, 0.96f);
 
-            // ---------- Вкладки категорий ----------
+            // ---------- Вкладки ----------
             var catBar = new GameObject("CategoryBar", typeof(RectTransform), typeof(HorizontalLayoutGroup));
             catBar.transform.SetParent(_panel.transform, false);
             var catRect = catBar.GetComponent<RectTransform>();
@@ -180,7 +181,8 @@ namespace KingdomsClone.UI
 
             BuildTooltip();
             BuildToggleButton();
-            BuildCloseButton();          
+            BuildCloseButton();
+            BuildDemolishButton();
             RefreshCategory(_currentCategory);
         }
 
@@ -312,6 +314,39 @@ namespace KingdomsClone.UI
             btnGo.GetComponent<Button>().onClick.AddListener(() => SetPanelOpen(false));
         }
 
+        private void BuildDemolishButton()
+        {
+            var btnGo = new GameObject("DemolishButton", typeof(RectTransform), typeof(Image), typeof(Button));
+            btnGo.transform.SetParent(_canvas.transform, false);
+
+            var rect = btnGo.GetComponent<RectTransform>();
+            rect.anchorMin = new Vector2(1, 1);
+            rect.anchorMax = new Vector2(1, 1);
+            rect.pivot = new Vector2(1, 1);
+            rect.sizeDelta = new Vector2(180, 56);
+            rect.anchoredPosition = new Vector2(-20, -20);
+
+            btnGo.GetComponent<Image>().color = new Color(0.5f, 0.15f, 0.15f, 1f);
+
+            var textGo = new GameObject("Label", typeof(RectTransform), typeof(Text));
+            textGo.transform.SetParent(btnGo.transform, false);
+            var tRect = textGo.GetComponent<RectTransform>();
+            tRect.anchorMin = Vector2.zero;
+            tRect.anchorMax = Vector2.one;
+            tRect.offsetMin = Vector2.zero;
+            tRect.offsetMax = Vector2.zero;
+
+            var t = textGo.GetComponent<Text>();
+            t.text = "🗑 Снос (X)";
+            t.font = _font;
+            t.fontSize = 18;
+            t.color = Color.white;
+            t.alignment = TextAnchor.MiddleCenter;
+            t.raycastTarget = false;
+
+            btnGo.GetComponent<Button>().onClick.AddListener(OnDemolishClicked);
+        }
+
         // =====================  ЛОГИКА  =====================
 
         private void SelectCategory(BuildingCategory cat)
@@ -395,48 +430,45 @@ namespace KingdomsClone.UI
 
         private void OnBuildingClicked(BuildingDataSO building)
         {
-            Debug.Log($"[BuildingUIManager] КЛИК по кнопке: {building?.DisplayName}");
-
+            Debug.Log($"[BuildingUIManager] КЛИК: {building?.DisplayName}");
             if (building == null) return;
+
+            // Если активен режим сноса — выключаем, чтобы не мешал
+            if (demolisher != null && demolisher.IsActive) demolisher.Cancel();
 
             SetPanelOpen(false);
             HideTooltip();
 
             if (placer == null)
             {
-                Debug.LogError("[BuildingUIManager] placer == null! Призрак НЕ появится.");
+                Debug.LogError("[BuildingUIManager] placer == null!");
+                return;
+            }
+            placer.StartPlacement(building);
+        }
+
+        private void OnDemolishClicked()
+        {
+            if (demolisher == null)
+            {
+                Debug.LogError("[BuildingUIManager] BuildingDemolisher не найден в сцене!");
                 return;
             }
 
-            placer.StartPlacement(building);
-            Debug.Log("[BuildingUIManager] StartPlacement вызван.");
+            // Отменяем активное строительство (призрак), если он был
+            if (placer != null) placer.CancelPlacement();
+
+            SetPanelOpen(false);
+            demolisher.StartDemolition();
         }
 
-        private void TogglePanel()
-        {
-            Debug.Log($"[BuildingUIManager] TogglePanel из {_panelOpen}");
-            SetPanelOpen(!_panelOpen);
-        }
+        private void TogglePanel() => SetPanelOpen(!_panelOpen);
 
         private void SetPanelOpen(bool open)
         {
-            Debug.Log($"[BuildingUIManager] SetPanelOpen({open})");
             _panelOpen = open;
-
-            if (_panel != null)
-            {
-                _panel.SetActive(open);
-                Debug.Log($"[BuildingUIManager] _panel.activeSelf = {_panel.activeSelf}");
-            }
-            else Debug.LogError("[BuildingUIManager] _panel == null!");
-
-            if (_toggleBtnGo != null)
-            {
-                _toggleBtnGo.SetActive(!open);
-                Debug.Log($"[BuildingUIManager] _toggleBtnGo.activeSelf = {_toggleBtnGo.activeSelf}");
-            }
-            else Debug.LogError("[BuildingUIManager] _toggleBtnGo == null!");
-
+            if (_panel != null) _panel.SetActive(open);
+            if (_toggleBtnGo != null) _toggleBtnGo.SetActive(!open);
             HideTooltip();
         }
 
@@ -474,6 +506,7 @@ namespace KingdomsClone.UI
             sb.AppendLine($"<b>HP:</b> {building.MaxHealth}");
             sb.AppendLine($"<b>Размер:</b> {building.Size.x}×{building.Size.y}");
             if (building.WorkerSlots > 0) sb.AppendLine($"<b>Рабочих мест:</b> {building.WorkerSlots}");
+            if (building.BuildTimeSeconds > 0.01f) sb.AppendLine($"<b>Время стройки:</b> {building.BuildTimeSeconds:F1}с");
 
             _tooltipText.text = sb.ToString();
 

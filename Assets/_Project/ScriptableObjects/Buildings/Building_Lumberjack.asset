@@ -13,23 +13,23 @@ MonoBehaviour:
   m_Name: Building_Lumberjack
   m_EditorClassIdentifier: Assembly-CSharp::KingdomsClone.Data.BuildingDataSO
   id: Building_Lumberjack
-  displayName: 
+  displayName: "\u041B\u0435\u0441\u043E\u0440\u0443\u0431"
   description: 
   icon: {fileID: 0}
   prefab: {fileID: 0}
   size: {x: 2, y: 2}
   category: 1
-  maxHealth: 150
+  maxHealth: 100
   workerSlots: 1
   storageCapacity: 0
   buildTimeSeconds: 5
   buildCost:
   - resource: {fileID: 11400000, guid: ac161cb7f7d3d0242883de59bfa61b93, type: 2}
-    amount: 5
+    amount: 15
   production:
     inputs: []
     outputs:
-    - resource: {fileID: 0}
+    - resource: {fileID: 11400000, guid: ac161cb7f7d3d0242883de59bfa61b93, type: 2}
       amount: 0
     cycleSeconds: 10
   happinessBonus: 0

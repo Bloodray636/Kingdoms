@@ -13,16 +13,16 @@ MonoBehaviour:
   m_Name: Building_House
   m_EditorClassIdentifier: Assembly-CSharp::KingdomsClone.Data.BuildingDataSO
   id: Building_House
-  displayName: 
+  displayName: "\u0425\u0438\u0431\u0430\u0440\u043A\u0430"
   description: 
   icon: {fileID: 0}
-  prefab: {fileID: 0}
-  size: {x: 2, y: 2}
+  prefab: {fileID: 1726167548140540349, guid: 802eeef9fe98db6428bf76a093b96471, type: 3}
+  size: {x: 1, y: 1}
   category: 0
-  maxHealth: 100
+  maxHealth: 50
   workerSlots: 0
   storageCapacity: 0
-  buildTimeSeconds: 5
+  buildTimeSeconds: 3
   buildCost:
   - resource: {fileID: 11400000, guid: ac161cb7f7d3d0242883de59bfa61b93, type: 2}
     amount: 10

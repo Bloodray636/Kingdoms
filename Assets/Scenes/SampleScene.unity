@@ -149,6 +149,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::KingdomsClone.UI.BuildingUIManager
   placer: {fileID: 371315477}
+  demolisher: {fileID: 1121238942}
   panelHeight: 220
   categoryBarHeight: 42
   buildingButtonSize: 110
@@ -199,12 +200,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::KingdomsClone.Grid.TileVisualizer
   landMaterial: {fileID: 2100000, guid: 57f0763e561f18842bbf5134f7a7fea7, type: 2}
   waterMaterial: {fileID: 2100000, guid: 849c9f98ed0aefb45aad0a1986cfd8bf, type: 2}
-  yOffset: 0.01
+  overlapFactor: 1.01
   grassColor: {r: 0.5764706, g: 0.7607843, b: 0.34117648, a: 1}
   forestColor: {r: 0.3529412, g: 0.54901963, b: 0.2784314, a: 1}
   rockColor: {r: 0.6392157, g: 0.6392157, b: 0.6392157, a: 1}
   waterColor: {r: 0.44705883, g: 0.75686276, b: 0.78431374, a: 1}
   fertileColor: {r: 0.9490196, g: 0.9019608, b: 0.7019608, a: 1}
+  roadColor: {r: 0.35, g: 0.3, b: 0.25, a: 1}
 --- !u!4 &247195873
 Transform:
   m_ObjectHideFlags: 0
@@ -375,8 +377,9 @@ MonoBehaviour:
   edgePanZonePixels: 15
   edgePanEnabled: 1
   panSmoothTime: 0.15
+  boundsPadding: 0.85
   initialZoom: 1
-  minDistance: 30
+  minDistance: 10
   maxDistance: 200
   minPitch: 45
   maxPitch: 70
@@ -636,6 +639,8 @@ MonoBehaviour:
   height: 100
   cellSize: 1
   originPosition: {x: 0, y: 0, z: 0}
+  surfaceYOffset: 0.05
+  waterDepth: -0.1
   mapSeed: 876
 --- !u!4 &579501473
 Transform:
@@ -647,6 +652,50 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &733184409
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 733184411}
+  - component: {fileID: 733184410}
+  m_Layer: 0
+  m_Name: BuildingManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &733184410
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 733184409}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 48f0c82f91343a64087eb27ada28d809, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::KingdomsClone.Gameplay.BuildingManager
+--- !u!4 &733184411
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 733184409}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 53.23795, y: 0.37375, z: 54.49978}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -701,6 +750,56 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1121238941
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1121238943}
+  - component: {fileID: 1121238942}
+  m_Layer: 0
+  m_Name: BuildingDemolisher
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1121238942
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1121238941}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d1d623f067649c340875c43ca10d573e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::KingdomsClone.Gameplay.BuildingDemolisher
+  highlightMaterial: {fileID: 2100000, guid: 0896a7d6ae151794e92823b4d4965dfb, type: 2}
+  highlightYOffset: 0.15
+  buildingLayerMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  maxRayDistance: 1000
+--- !u!4 &1121238943
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1121238941}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 53.23795, y: 0.37375, z: 54.49978}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1307401419
 GameObject:
   m_ObjectHideFlags: 0
@@ -730,6 +829,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 11c409bd699e02445887d777e21ebbad, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::KingdomsClone.Core.ResourceManager
+  respectMaxStack: 1
 --- !u!4 &1307401421
 Transform:
   m_ObjectHideFlags: 0
@@ -776,11 +876,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::KingdomsClone.Grid.MapDecorator
   waterPrefab: {fileID: 5978288492397453867, guid: daf73246767a94040ac08eb45a0adb7d, type: 3}
   treePrefab: {fileID: 302470079471115919, guid: ab7abe8310363f940bcae65b60f663f5, type: 3}
-  rockPrefab: {fileID: 2653872349688047686, guid: bf3a7080adb9083448825adb1ee86834, type: 3}
+  rockPrefab: {fileID: 919132149155446097, guid: 3d1673abc41f7da4a88ce3f1dab76355, type: 3}
   waterYOffset: -0.1
   treeYOffset: 0
+  rockYOffset: 0
   treesPerForestCell: 1
   treeSpread: 0.4
+  rockSpawnChance: 0.7
 --- !u!4 &1310965713
 Transform:
   m_ObjectHideFlags: 0
@@ -1086,6 +1188,9 @@ MonoBehaviour:
   showLines: 0
   lineColor: {r: 1, g: 1, b: 1, a: 1}
   lineStep: 5
+  lineYOffset: 0.15
+  fishingMarkerScale: 0.3
+  fishingMarkerYOffset: 0.1
 --- !u!4 &1705802500
 Transform:
   m_ObjectHideFlags: 0
@@ -1096,6 +1201,100 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: -0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1730315278
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1730315280}
+  - component: {fileID: 1730315279}
+  m_Layer: 0
+  m_Name: RoadVisualizer
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1730315279
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1730315278}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a12ef442b1f1a8e4bb6335e898963a46, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::KingdomsClone.Grid.RoadVisualizer
+  roadMaterial: {fileID: 2100000, guid: afcc71114a4eeaa49af689a0c40a9607, type: 2}
+  roadYOffset: 0.02
+--- !u!4 &1730315280
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1730315278}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 53.23795, y: 0.37375, z: 54.49978}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1789278438
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1789278440}
+  - component: {fileID: 1789278439}
+  m_Layer: 0
+  m_Name: RoadPlacer
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1789278439
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1789278438}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: de38dc6c5cb1bfd41bf6d1bec63cea5f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::KingdomsClone.Gameplay.RoadPlacer
+  validPreviewMaterial: {fileID: 2100000, guid: 50fa7660f537a544ba28d452e51d2510, type: 2}
+  invalidPreviewMaterial: {fileID: 2100000, guid: 1374b8261d436634f85c853f3a300329, type: 2}
+  ghostYOffset: 0.05
+  roadIsFree: 1
+--- !u!4 &1789278440
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1789278438}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 53.23795, y: 0.37375, z: 54.49978}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1164,3 +1363,7 @@ SceneRoots:
   - {fileID: 1310965713}
   - {fileID: 371315478}
   - {fileID: 50264405}
+  - {fileID: 1730315280}
+  - {fileID: 1789278440}
+  - {fileID: 733184411}
+  - {fileID: 1121238943}

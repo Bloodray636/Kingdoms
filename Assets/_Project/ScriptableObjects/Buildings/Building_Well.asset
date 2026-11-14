@@ -12,21 +12,23 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 06d20f42032cf81468c22c97d6ee9456, type: 3}
   m_Name: Building_Well
   m_EditorClassIdentifier: Assembly-CSharp::KingdomsClone.Data.BuildingDataSO
-  id: 
-  displayName: 
+  id: Building_Well
+  displayName: "\u041A\u043E\u043B\u043E\u0434\u0435\u0446"
   description: 
   icon: {fileID: 0}
   prefab: {fileID: 0}
   size: {x: 1, y: 1}
-  category: 1
-  maxHealth: 100
+  category: 2
+  maxHealth: 80
   workerSlots: 0
   storageCapacity: 0
   buildTimeSeconds: 5
-  buildCost: []
+  buildCost:
+  - resource: {fileID: 11400000, guid: df61875d6b1c04744a07d083b3c16252, type: 2}
+    amount: 10
   production:
     inputs: []
     outputs: []
     cycleSeconds: 10
-  happinessBonus: 0
-  happinessRadius: 0
+  happinessBonus: 2
+  happinessRadius: 5

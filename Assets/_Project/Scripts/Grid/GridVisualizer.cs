@@ -4,27 +4,37 @@ using KingdomsClone.Grid;
 
 namespace KingdomsClone.Grid
 {
-    /// <summary>
-    /// Рисует линии сетки, подсвечивает клетку под курсором, 
-    /// показывает координаты и визуализирует рыболовные зоны.
-    /// </summary>
     public class GridVisualizer : MonoBehaviour
     {
         [Header("Materials")]
-        [SerializeField] private Material highlightMaterial;     // Желтый квадрат под курсором
-        [SerializeField] private Material fishingMarkerMaterial; // Голубой маркер рыбалки
+        [SerializeField] private Material highlightMaterial;
+        [SerializeField] private Material fishingMarkerMaterial;
 
         [Header("Grid Lines")]
         [SerializeField] private bool showLines = true;
         [SerializeField] private Color lineColor = new Color(1f, 1f, 1f, 0.2f);
-        [SerializeField] private int lineStep = 5; // Рисовать линию каждые N клеток
+        [Tooltip("Рисовать линию каждые N клеток")]
+        [SerializeField] private int lineStep = 5;
+        [Tooltip("Высота линий над землёй (в метрах)")]
+        [SerializeField] private float lineYOffset = 0.15f;
+
+        [Header("Fishing Markers")]
+        [SerializeField] private float fishingMarkerScale = 0.3f;
+        [SerializeField] private float fishingMarkerYOffset = 0.1f;
 
         private Vector2Int _hoveredCell = new Vector2Int(-1, -1);
         private Mesh _quadMesh;
 
+        private static readonly Quaternion FlatRotation = Quaternion.Euler(-90f, 0f, 0f);
+
         private void Awake()
         {
             _quadMesh = GenerateQuadMesh();
+        }
+
+        private void OnDestroy()
+        {
+            if (_quadMesh != null) Destroy(_quadMesh);
         }
 
         private void Update()
@@ -35,10 +45,7 @@ namespace KingdomsClone.Grid
 
             if (grid == null || cam == null || mouse == null) return;
 
-            // Луч из камеры в точку мыши
             Ray ray = cam.ScreenPointToRay(mouse.position.ReadValue());
-            
-            // Плоскость земли (Y = 0)
             Plane groundPlane = new Plane(Vector3.up, Vector3.zero);
 
             if (groundPlane.Raycast(ray, out float enter))
@@ -48,7 +55,7 @@ namespace KingdomsClone.Grid
             }
             else
             {
-                _hoveredCell = new Vector2Int(-1, -1); // Мышь за пределами карты
+                _hoveredCell = new Vector2Int(-1, -1);
             }
         }
 
@@ -57,63 +64,72 @@ namespace KingdomsClone.Grid
             var grid = GridSystem.Instance;
             if (grid == null) return;
 
-            // 1. Подсветка клетки под курсором
+            // ========== ПОДСВЕТКА КУРСОРА ==========
             if (highlightMaterial != null && grid.IsValidCell(_hoveredCell.x, _hoveredCell.y))
             {
-                Cell cell = grid.GetCell(_hoveredCell.x, _hoveredCell.y);
                 Vector3 pos = grid.CellToWorld(_hoveredCell.x, _hoveredCell.y);
-                
-                // Поднимаем квадрат ровно над кубом тайла
-                pos.y = cell.Elevation + 0.05f;
+                pos.y = grid.GetSurfaceY(_hoveredCell.x, _hoveredCell.y) + 0.05f;
 
-                Quaternion rot = Quaternion.Euler(-90f, 0f, 0f);
-                Matrix4x4 mat = Matrix4x4.TRS(pos, rot, new Vector3(grid.CellSize * 1.02f, grid.CellSize * 1.02f, 1f));
-
+                float scale = grid.CellSize * 1.02f;
+                Matrix4x4 mat = Matrix4x4.TRS(pos, FlatRotation, new Vector3(scale, scale, 1f));
                 Graphics.DrawMesh(_quadMesh, mat, highlightMaterial, 0);
             }
 
-            // 2. Визуализация рыболовных зон
+            // ========== РЫБОЛОВНЫЕ МАРКЕРЫ ==========
             if (fishingMarkerMaterial != null)
             {
+                float markerScale = fishingMarkerScale * grid.CellSize;
+
                 for (int x = 0; x < grid.Width; x++)
                 {
                     for (int y = 0; y < grid.Height; y++)
                     {
-                        if (grid.IsFishingZone(x, y))
-                        {
-                            Vector3 pos = grid.CellToWorld(x, y);
-                            pos.y = grid.GetCell(x, y).Elevation + 0.1f; // Над землей
+                        if (!grid.IsFishingZone(x, y)) continue;
 
-                            Matrix4x4 mat = Matrix4x4.TRS(pos, Quaternion.identity, Vector3.one * 0.3f);
-                            Graphics.DrawMesh(_quadMesh, mat, fishingMarkerMaterial, 0);
-                        }
+                        Vector3 pos = grid.CellToWorld(x, y);
+                        pos.y = grid.GetSurfaceY(x, y) + fishingMarkerYOffset;
+
+                        // ФИКС: маркеры теперь тоже лежат на земле, а не стоят вертикально
+                        Matrix4x4 mat = Matrix4x4.TRS(pos, FlatRotation, Vector3.one * markerScale);
+                        Graphics.DrawMesh(_quadMesh, mat, fishingMarkerMaterial, 0);
                     }
                 }
             }
         }
 
-        // Линии сетки — рисуются в окне Scene (в Game View в URP они не видны без отдельного шейдера)
+        // Линии сетки — только в Scene View (Gizmos)
         private void OnDrawGizmos()
         {
             if (!showLines || !Application.isPlaying) return;
 
             var grid = GridSystem.Instance;
-            if (grid == null) return;
+            if (grid == null || grid.Grid == null) return;
 
             Gizmos.color = lineColor;
-            float y = 1.05f; // Чуть выше уровня травы
 
+            Vector3 origin = grid.OriginPosition;
+            float cellSize = grid.CellSize;
+
+            // ФИКС: используем реальные OriginPosition и CellSize, а не хардкод 0..Width
+            float y = grid.SurfaceYOffset + lineYOffset;
+
+            // Линии вдоль Z (по X)
             for (int x = 0; x <= grid.Width; x += lineStep)
             {
-                Gizmos.DrawLine(new Vector3(x, y, 0), new Vector3(x, y, grid.Height));
+                Vector3 start = origin + new Vector3(x * cellSize, y, 0f);
+                Vector3 end = origin + new Vector3(x * cellSize, y, grid.Height * cellSize);
+                Gizmos.DrawLine(start, end);
             }
-            for (int yPos = 0; yPos <= grid.Height; yPos += lineStep)
+
+            // Линии вдоль X (по Z)
+            for (int z = 0; z <= grid.Height; z += lineStep)
             {
-                Gizmos.DrawLine(new Vector3(0, y, yPos), new Vector3(grid.Width, y, yPos));
+                Vector3 start = origin + new Vector3(0f, y, z * cellSize);
+                Vector3 end = origin + new Vector3(grid.Width * cellSize, y, z * cellSize);
+                Gizmos.DrawLine(start, end);
             }
         }
 
-        // Отладочные координаты в углу экрана
         private void OnGUI()
         {
             if (_hoveredCell.x >= 0)
@@ -124,16 +140,13 @@ namespace KingdomsClone.Grid
 
         private Mesh GenerateQuadMesh()
         {
-            Mesh mesh = new Mesh();
-            mesh.name = "Highlight_Quad";
-            Vector3[] vertices = new Vector3[4]
+            var mesh = new Mesh { name = "Highlight_Quad" };
+            mesh.vertices = new[]
             {
                 new Vector3(-0.5f, -0.5f, 0), new Vector3( 0.5f, -0.5f, 0),
                 new Vector3(-0.5f,  0.5f, 0), new Vector3( 0.5f,  0.5f, 0)
             };
-            int[] tris = new int[6] { 0, 1, 2, 2, 1, 3 };
-            mesh.vertices = vertices;
-            mesh.triangles = tris;
+            mesh.triangles = new[] { 0, 1, 2, 2, 1, 3 };
             mesh.RecalculateNormals();
             return mesh;
         }

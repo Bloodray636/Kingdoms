@@ -13,17 +13,19 @@ MonoBehaviour:
   m_Name: Building_Storage
   m_EditorClassIdentifier: Assembly-CSharp::KingdomsClone.Data.BuildingDataSO
   id: Building_Storage
-  displayName: 
+  displayName: "\u0421\u043A\u043B\u0430\u0434"
   description: 
   icon: {fileID: 0}
   prefab: {fileID: 0}
-  size: {x: 1, y: 1}
-  category: 1
-  maxHealth: 100
-  workerSlots: 0
-  storageCapacity: 0
+  size: {x: 2, y: 2}
+  category: 4
+  maxHealth: 150
+  workerSlots: 1
+  storageCapacity: 200
   buildTimeSeconds: 5
-  buildCost: []
+  buildCost:
+  - resource: {fileID: 11400000, guid: ac161cb7f7d3d0242883de59bfa61b93, type: 2}
+    amount: 20
   production:
     inputs: []
     outputs: []

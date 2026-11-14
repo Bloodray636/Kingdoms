@@ -14,6 +14,8 @@ namespace KingdomsClone.CameraControl
         [SerializeField] private float edgePanZonePixels = 15f;
         [SerializeField] private bool edgePanEnabled = true;
         [SerializeField] private float panSmoothTime = 0.15f;
+        [Tooltip("0 = пивот зажат строго в [min,max], 1 = видимый край камеры совпадает с краем карты. " + "0.85 = можно чуть заглянуть за край (как в K&C).")]
+        [SerializeField, Range(0f, 1.5f)] private float boundsPadding = 0.85f;
 
         [Header("Zoom")]
         [SerializeField, Range(0f, 1f)] private float initialZoom = 0.4f;
@@ -114,12 +116,21 @@ namespace KingdomsClone.CameraControl
 
             if (input.sqrMagnitude > 0f)
             {
-                input = Vector2.ClampMagnitude(input, 1f);
+                input = Vector2.ClampMagnitude(input, 1f); // диагональ не быстрее
+
+                // ФИКС: направление движения относительно YAW камеры, а не мировых осей.
+                // Если камера повернута на 90° — W поведёт вперёд по взгляду, а не по +Z.
+                float yaw = transform.eulerAngles.y;
+                Quaternion yawRotation = Quaternion.Euler(0f, yaw, 0f);
+                Vector3 forward = yawRotation * Vector3.forward;  // горизонтальное "вперёд"
+                Vector3 right = yawRotation * Vector3.right;      // горизонтальное "вправо"
+
+                Vector3 worldDir = forward * input.y + right * input.x;
+
                 float zoomSpeedMul = Mathf.Lerp(0.6f, 1.6f, _currentZoom);
                 float speed = panSpeed * zoomSpeedMul * (fast ? fastPanMultiplier : 1f);
-                
-                // ИСПРАВЛЕНИЕ 2.4: Используем unscaledDeltaTime, чтобы камера работала на паузе
-                _targetPivot += new Vector3(input.x, 0f, input.y) * speed * Time.unscaledDeltaTime;
+
+                _targetPivot += worldDir * speed * Time.unscaledDeltaTime;
             }
         }
 
@@ -134,8 +145,46 @@ namespace KingdomsClone.CameraControl
 
         private void ClampPivot()
         {
-            _targetPivot.x = Mathf.Clamp(_targetPivot.x, mapMin.x, mapMax.x);
-            _targetPivot.z = Mathf.Clamp(_targetPivot.z, mapMin.y, mapMax.y);
+            var cam = Camera.main;
+
+            // Fallback: камеры нет — старое поведение
+            if (cam == null)
+            {
+                _targetPivot.x = Mathf.Clamp(_targetPivot.x, mapMin.x, mapMax.x);
+                _targetPivot.z = Mathf.Clamp(_targetPivot.z, mapMin.y, mapMax.y);
+                return;
+            }
+
+            // Берём ЦЕЛЕВЫЕ значения (куда летит камера), а не текущие —
+            // иначе при зуме будет дёргаться граница.
+            float distance = Mathf.Lerp(minDistance, maxDistance, _targetZoom);
+            float pitchDeg = Mathf.Lerp(minPitch, maxPitch, _targetZoom);
+            float pitchRad = pitchDeg * Mathf.Deg2Rad;
+
+            // Видимый экстент в camera-space (половина высоты фрустума на дистанции pivot'а)
+            float halfFovRad = cam.fieldOfView * 0.5f * Mathf.Deg2Rad;
+            float halfVertical = distance * Mathf.Tan(halfFovRad);
+
+            // Проекция на землю. Деление на sin(pitch) растягивает видимую область
+            // при наклонном взгляде (45° видит больше Z, чем 80°).
+            float groundHalfZ = halfVertical / Mathf.Max(0.1f, Mathf.Sin(pitchRad));
+            float groundHalfX = groundHalfZ * cam.aspect;
+
+            // Padding: <1 — разрешаем заглянуть за край, 1 — впритык
+            groundHalfX *= boundsPadding;
+            groundHalfZ *= boundsPadding;
+
+            float minX = mapMin.x + groundHalfX;
+            float maxX = mapMax.x - groundHalfX;
+            float minZ = mapMin.y + groundHalfZ;
+            float maxZ = mapMax.y - groundHalfZ;
+
+            // Если карта меньше видимой области — центрируем и не дёргаем
+            if (minX > maxX) minX = maxX = (mapMin.x + mapMax.x) * 0.5f;
+            if (minZ > maxZ) minZ = maxZ = (mapMin.y + mapMax.y) * 0.5f;
+
+            _targetPivot.x = Mathf.Clamp(_targetPivot.x, minX, maxX);
+            _targetPivot.z = Mathf.Clamp(_targetPivot.z, minZ, maxZ);
         }
 
         private void SmoothStep()

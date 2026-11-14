@@ -3,11 +3,6 @@ using KingdomsClone.Core.Events;
 
 namespace KingdomsClone.Core
 {
-    /// <summary>
-    /// Игровое время: тики, дни, сезоны, скорость.
-    /// Управляет Time.timeScale (пауза = 0, скорости 1..3, но дебаг может выкрутить x10+).
-    /// Сам подписан на GameStateChangedEvent — пауза игры = пауза времени.
-    /// </summary>
     [DefaultExecutionOrder(-900)]
     public class TimeManager : MonoBehaviour
     {
@@ -18,16 +13,19 @@ namespace KingdomsClone.Core
         public const int TicksPerSecond = 4;
         public const float MinSpeed = 1f;
         public const float MaxSpeed = 3f;
-        private const float TickInterval = 1f / TicksPerSecond;  // 0.25
+        private const float TickInterval = 1f / TicksPerSecond;
+
+        // ФИКС: лимит тиков за кадр. Защита от лагов при огромной перемотке.
+        private const int MaxTicksPerFrame = 256;
 
         [SerializeField, Range(MinSpeed, MaxSpeed)] private float startSpeed = 1f;
 
         private float _gameTimeSeconds;
         private float _tickAccumulator;
         private float _speed = 1f;
-        private float _debugSpeedMultiplier = 1f;  // Для читов (x10) — не сбрасывается обычным SetSpeed
+        private float _debugSpeedMultiplier = 1f;
         private int _lastDay = 1;
-        private bool _isPaused = true;   // стартуем в Boot — время стоит
+        private bool _isPaused = true;
 
         public float GameTimeSeconds => _gameTimeSeconds;
         public int CurrentDay => Mathf.FloorToInt(_gameTimeSeconds / SecondsPerDay) + 1;
@@ -45,7 +43,6 @@ namespace KingdomsClone.Core
             Instance = this;
             DontDestroyOnLoad(gameObject);
             _speed = Mathf.Clamp(startSpeed, MinSpeed, MaxSpeed);
-            ApplyTimeScale();
         }
 
         private void OnEnable()  => EventBus.Subscribe<GameStateChangedEvent>(OnGameStateChanged);
@@ -54,7 +51,6 @@ namespace KingdomsClone.Core
 
         private void OnGameStateChanged(GameStateChangedEvent e)
         {
-            // ИСПРАВЛЕНИЕ 2.1: Останавливаем время в Меню и при загрузке (Boot)
             switch (e.NewState)
             {
                 case GameState.Playing:
@@ -72,41 +68,60 @@ namespace KingdomsClone.Core
         {
             if (EffectiveSpeed <= 0f) return;
 
-            float dt = Time.deltaTime;  // уже масштабирован через Time.timeScale
+            float dt = Time.deltaTime;
             _gameTimeSeconds += dt;
-
-            // ИСПРАВЛЕНИЕ 2.3: Вынесли логику тиков в отдельный метод
             ProcessTicks(dt);
         }
 
-        /// <summary>
-        /// Общий метод для обработки тиков и смены дней.
-        /// Используется как в Update (естественное время), так и в AddGameSeconds (читы).
-        /// </summary>
-        private void ProcessTicks(float deltaSeconds)
+        private void LateUpdate()
         {
-            // Тики: 4 раза в секунду игрового времени.
-            // На x10+ dt может быть больше 0.25, цикл while обработает несколько тиков за кадр.
-            _tickAccumulator += deltaSeconds;
-            while (_tickAccumulator >= TickInterval)
+            // ФИКС: LateUpdate — финальная реконсиляция Time.timeScale.
+            // Если кто-то извне (анимация, скрипт, катсцена) поменял — возвращаем наше значение.
+            float expected = EffectiveSpeed;
+            if (!Mathf.Approximately(Time.timeScale, expected))
             {
-                _tickAccumulator -= TickInterval;
-                EventBus.Publish(new GameTickEvent { DeltaGameSeconds = TickInterval });
-            }
-
-            // Смена дня
-            int currentDay = CurrentDay;
-            while (currentDay != _lastDay)
-            {
-                _lastDay++;
-                PublishDayChanged(_lastDay); // ИСПРАВЛЕНИЕ 2.2
+                Time.timeScale = expected;
             }
         }
 
-        /// <summary>
-        /// Публикует событие смены дня, вычисляя год и сезон СТРОГО от переданного дня.
-        /// Это гарантирует правильные данные, даже если время перемотали на 100 дней вперед.
-        /// </summary>
+        private void ProcessTicks(float deltaSeconds)
+        {
+            _tickAccumulator += deltaSeconds;
+            int processed = 0;
+
+            // ФИКС: ограничиваем количество тиков за кадр
+            while (_tickAccumulator >= TickInterval && processed < MaxTicksPerFrame)
+            {
+                _tickAccumulator -= TickInterval;
+                EventBus.Publish(new GameTickEvent { DeltaGameSeconds = TickInterval });
+                processed++;
+            }
+
+            if (processed >= MaxTicksPerFrame)
+            {
+                Debug.LogWarning($"[TimeManager] Достигнут лимит {MaxTicksPerFrame} тиков за кадр. " +
+                                 $"Отстаток {_tickAccumulator:F2}s будет отброшен (возможна потеря точности).");
+                _tickAccumulator = 0f;
+            }
+
+            // Смена дня — тоже с защитой
+            int currentDay = CurrentDay;
+            int dayGuard = 0;
+            while (currentDay != _lastDay && dayGuard < MaxTicksPerFrame)
+            {
+                _lastDay++;
+                PublishDayChanged(_lastDay);
+                dayGuard++;
+            }
+
+            if (dayGuard >= MaxTicksPerFrame)
+            {
+                Debug.LogWarning($"[TimeManager] Достигнут лимит смены дней за кадр. " +
+                                 $"Возможно, _lastDay={_lastDay} != CurrentDay={currentDay}.");
+                _lastDay = currentDay;
+            }
+        }
+
         private void PublishDayChanged(int day)
         {
             EventBus.Publish(new DayChangedEvent
@@ -117,7 +132,7 @@ namespace KingdomsClone.Core
             });
         }
 
-        // ---------- Публичный API ----------
+        // ============ ПУБЛИЧНЫЙ API ============
 
         public void SetSpeed(float newSpeed)
         {
@@ -126,45 +141,55 @@ namespace KingdomsClone.Core
 
             float old = _speed;
             _speed = newSpeed;
-            ApplyTimeScale();
             EventBus.Publish(new GameSpeedChangedEvent { OldSpeed = old, NewSpeed = newSpeed });
         }
 
-        /// <summary>
-        /// Дебаг-множитель скорости. Применяется поверх обычной скорости.
-        /// SetDebugSpeed(10) при Speed=1 → время идёт x10.
-        /// SetDebugSpeed(1)  → возвращает обычную скорость.
-        /// </summary>
         public void SetDebugSpeed(float multiplier)
         {
             _debugSpeedMultiplier = Mathf.Max(1f, multiplier);
-            ApplyTimeScale();
-            Debug.Log($"[TimeManager] Debug speed multiplier set to {_debugSpeedMultiplier}x (effective: {EffectiveSpeed}x)");
+            Debug.Log($"[TimeManager] Debug speed ×{_debugSpeedMultiplier} (effective {EffectiveSpeed}x)");
         }
 
         private void SetPaused(bool paused)
         {
             if (_isPaused == paused) return;
             _isPaused = paused;
-            ApplyTimeScale();
         }
 
-        private void ApplyTimeScale()
+        // ============ ПРОДВИЖЕНИЕ ВРЕМЕНИ ============
+
+        /// <summary>
+        /// Продвинуть игровое время на N секунд. НЕ РАБОТАЕТ НА ПАУЗЕ.
+        /// Используется игровыми механиками: сон жителя, ускорение по кнопке, ритуалы.
+        /// </summary>
+        public void AdvanceGameTime(float seconds)
         {
-            Time.timeScale = EffectiveSpeed;
+            if (seconds <= 0f) return;
+            if (_isPaused)
+            {
+                Debug.LogWarning($"[TimeManager] AdvanceGameTime({seconds}) проигнорирован: игра на паузе.");
+                return;
+            }
+
+            _gameTimeSeconds += seconds;
+            ProcessTicks(seconds);
         }
 
         /// <summary>
-        /// Дебаг: промотать игровое время вперёд. Для тестов и читов.
-        /// Теперь корректно публикует GameTickEvent и DayChangedEvent (Исправление 2.3).
+        /// ПРИНУДИТЕЛЬНО продвинуть время. Работает даже на паузе.
+        /// ТОЛЬКО ДЛЯ ДЕБАГА/ЧИТОВ. Игровые механики должны использовать AdvanceGameTime.
         /// </summary>
-        public void AddGameSeconds(float seconds)
+        public void DebugAdvanceGameTime(float seconds)
         {
             if (seconds <= 0f) return;
+
             _gameTimeSeconds += seconds;
-            
-            // Перематываем время с учетом всех прошедших тиков
-            ProcessTicks(seconds); 
+            ProcessTicks(seconds);
+            Debug.Log($"[TimeManager] DEBUG перемотка {seconds}s → GameTime={_gameTimeSeconds:F1}s, Day={CurrentDay}");
         }
+
+        // Обратная совместимость: старый код вызывает AddGameSeconds — оставим алиас
+        [System.Obsolete("Используй AdvanceGameTime (уважает паузу) или DebugAdvanceGameTime (всегда)")]
+        public void AddGameSeconds(float seconds) => DebugAdvanceGameTime(seconds);
     }
 }
