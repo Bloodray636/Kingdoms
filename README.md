@@ -36,13 +36,6 @@ RTS/город-строитель в стиле Kingdoms and Castles.
 - **Grid** — клетки 1×1 метра, `Cell[,]` массив, `WorldToCell` / `CellToWorld` / `GetSurfaceY`
 - **Pathfinding** — A* на графе из клеток, вес = `Cell.MovementCost`
 
-## Правила
-
-- **Не пушить в `main` напрямую** — только через PR
-- **Билд раз в неделю** — см. задачу 0.9 (`Build → Build Windows (Test Build)`)
-- **Задачи** — в Notion-доске, не в GitHub Issues
-- **Баги** — по шаблону из `G.0.4` (шаги → ожидание → факт → скрин → приоритет)
-
 ## Стек
 
 - **Unity 6 LTS** + **URP** (Universal Render Pipeline)
