@@ -93,8 +93,28 @@ namespace KingdomsClone.UI
             if (kb.bKey.wasPressedThisFrame)
                 TogglePanel();
 
+            if (kb.tKey.wasPressedThisFrame)
+                OnRoadClicked();
+
             if (kb.xKey.wasPressedThisFrame)
                 OnDemolishClicked();
+        }
+
+        private void OnRoadClicked()
+        {
+            var roadPlacer = FindObjectOfType<KingdomsClone.Gameplay.RoadPlacer>();
+            if (roadPlacer == null)
+            {
+                Debug.LogError("[BuildingUIManager] RoadPlacer не найден в сцене!");
+                return;
+            }
+
+            // Отменяем все другие режимы, чтобы не дрались
+            if (placer != null) placer.CancelPlacement();
+            if (demolisher != null) demolisher.Cancel();
+
+            SetPanelOpen(false);
+            roadPlacer.StartPlacement();
         }
 
         private static Font LoadFont()
@@ -451,12 +471,14 @@ namespace KingdomsClone.UI
         {
             if (demolisher == null)
             {
-                Debug.LogError("[BuildingUIManager] BuildingDemolisher не найден в сцене!");
+                Debug.LogError("[BuildingUIManager] BuildingDemolisher не найден!");
                 return;
             }
 
-            // Отменяем активное строительство (призрак), если он был
+            // Отменяем другие режимы
             if (placer != null) placer.CancelPlacement();
+            var roadPlacer = FindObjectOfType<KingdomsClone.Gameplay.RoadPlacer>();
+            if (roadPlacer != null) roadPlacer.Cancel();
 
             SetPanelOpen(false);
             demolisher.StartDemolition();

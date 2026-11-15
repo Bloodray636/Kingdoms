@@ -3,6 +3,8 @@ using UnityEngine.InputSystem;
 using KingdomsClone.Core;
 using KingdomsClone.Grid;
 using KingdomsClone.Grid.Events;
+using UnityEngine.EventSystems;
+using KingdomsClone.Core.DebugTools;
 
 namespace KingdomsClone.CameraControl
 {
@@ -88,8 +90,11 @@ namespace KingdomsClone.CameraControl
             Vector2 input = Vector2.zero;
             bool fast = false;
 
+            // ФИКС: если в фокусе текстовое поле — не читаем клавиатуру (иначе WASD печатается в поле)
+            bool inputBlockedByUI = GUIUtility.keyboardControl != 0;
+
             var kb = Keyboard.current;
-            if (kb != null)
+            if (kb != null && !inputBlockedByUI)
             {
                 if (kb.wKey.isPressed || kb.upArrowKey.isPressed)    input.y += 1f;
                 if (kb.sKey.isPressed || kb.downArrowKey.isPressed)  input.y -= 1f;
@@ -103,28 +108,32 @@ namespace KingdomsClone.CameraControl
                 var mouse = Mouse.current;
                 if (mouse != null)
                 {
-                    Vector2 mp = mouse.position.ReadValue();
-                    if (mp.x >= 0 && mp.x <= Screen.width && mp.y >= 0 && mp.y <= Screen.height)
+                    // ФИКС: не edge-pan, если курсор над UI или открыто меню
+                    bool overUI = (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
+                                  || DebugMenu.IsOpen;
+
+                    if (!overUI)
                     {
-                        if (mp.x < edgePanZonePixels) input.x -= 1f;
-                        if (mp.x > Screen.width - edgePanZonePixels) input.x += 1f;
-                        if (mp.y < edgePanZonePixels) input.y -= 1f;
-                        if (mp.y > Screen.height - edgePanZonePixels) input.y += 1f;
+                        Vector2 mp = mouse.position.ReadValue();
+                        if (mp.x >= 0 && mp.x <= Screen.width && mp.y >= 0 && mp.y <= Screen.height)
+                        {
+                            if (mp.x < edgePanZonePixels) input.x -= 1f;
+                            if (mp.x > Screen.width - edgePanZonePixels) input.x += 1f;
+                            if (mp.y < edgePanZonePixels) input.y -= 1f;
+                            if (mp.y > Screen.height - edgePanZonePixels) input.y += 1f;
+                        }
                     }
                 }
             }
 
             if (input.sqrMagnitude > 0f)
             {
-                input = Vector2.ClampMagnitude(input, 1f); // диагональ не быстрее
+                input = Vector2.ClampMagnitude(input, 1f);
 
-                // ФИКС: направление движения относительно YAW камеры, а не мировых осей.
-                // Если камера повернута на 90° — W поведёт вперёд по взгляду, а не по +Z.
                 float yaw = transform.eulerAngles.y;
                 Quaternion yawRotation = Quaternion.Euler(0f, yaw, 0f);
-                Vector3 forward = yawRotation * Vector3.forward;  // горизонтальное "вперёд"
-                Vector3 right = yawRotation * Vector3.right;      // горизонтальное "вправо"
-
+                Vector3 forward = yawRotation * Vector3.forward;
+                Vector3 right = yawRotation * Vector3.right;
                 Vector3 worldDir = forward * input.y + right * input.x;
 
                 float zoomSpeedMul = Mathf.Lerp(0.6f, 1.6f, _currentZoom);
@@ -138,8 +147,16 @@ namespace KingdomsClone.CameraControl
         {
             var mouse = Mouse.current;
             if (mouse == null) return;
+
+            // ФИКС: не зумить, если открыто дебаг-меню или курсор над uGUI
+            if (DebugMenu.IsOpen) return;
+            if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) return;
+            // И если в фокусе текстовое поле (IMGUI)
+            if (GUIUtility.keyboardControl != 0) return;
+
             float scroll = mouse.scroll.ReadValue().y;
             if (Mathf.Abs(scroll) < 0.01f) return;
+
             _targetZoom = Mathf.Clamp01(_targetZoom - scroll * scrollSensitivity);
         }
 

@@ -9,6 +9,7 @@ namespace KingdomsClone.Grid
         public TileType Type { get; set; }
         public float Elevation { get; set; }
         public GameObject OccupiedBy { get; set; }
+        public bool OccupiedByIsHousing { get; set; }  // НОВОЕ
 
         public float MovementCost { get; set; }
 
@@ -19,6 +20,7 @@ namespace KingdomsClone.Grid
             Type = type;
             Elevation = elevation;
             OccupiedBy = null;
+            OccupiedByIsHousing = false;
             UpdateMovementCost();
         }
 
@@ -26,25 +28,31 @@ namespace KingdomsClone.Grid
         {
             switch (Type)
             {
-                case TileType.Road:    MovementCost = 2f;  break;
-                case TileType.Grass:   MovementCost = 10f; break;
-                case TileType.Fertile: MovementCost = 10f; break;
-                case TileType.Forest:  MovementCost = 15f; break;
+                case TileType.Road:    MovementCost = 2f;   break;
+                case TileType.Grass:   MovementCost = 10f;  break;
+                case TileType.Fertile: MovementCost = 10f;  break;
+                case TileType.Forest:  MovementCost = 15f;  break;
                 case TileType.Rock:    MovementCost = 999f; break;
                 case TileType.Water:   MovementCost = 999f; break;
-                default: MovementCost = 10f; break;
+                default:               MovementCost = 10f;  break;
             }
         }
 
         public bool IsWalkable() => Type != TileType.Water && Type != TileType.Rock;
 
-        // ФИКС: строить можно ТОЛЬКО на траве и плодородной земле.
-        // Лес надо вырубить, камни — снести, дороги — это дороги, на них не строят.
-        public bool IsBuildable()
+        /// <summary>
+        /// Текущая проходимость для A*. Учитывает тип тайла + занятость зданиями.
+        /// ФИКС: housing-здания проходимы — жители там живут, могут входить и выходить.
+        /// Остальные здания (production, storage, defense) блокируют путь.
+        /// </summary>
+        public bool IsTraversable()
         {
-            return Type == TileType.Grass || Type == TileType.Fertile;
+            if (Type == TileType.Water || Type == TileType.Rock) return false;
+            if (OccupiedBy != null && !OccupiedByIsHousing) return false;
+            return true;
         }
 
+        public bool IsBuildable() => Type == TileType.Grass || Type == TileType.Fertile;
         public bool IsFree() => OccupiedBy == null;
     }
 }

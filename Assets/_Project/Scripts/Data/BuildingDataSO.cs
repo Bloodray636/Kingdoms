@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using KingdomsClone.Gameplay;
 
 namespace KingdomsClone.Data
 {
@@ -11,6 +12,7 @@ namespace KingdomsClone.Data
     {
         [Header("Visual")]
         [SerializeField] private GameObject prefab;
+
         [Tooltip("Размер в клетках сетки (ширина × высота).")]
         [SerializeField] private Vector2Int size = Vector2Int.one;
 
@@ -19,8 +21,16 @@ namespace KingdomsClone.Data
         [SerializeField, Min(1)] private int maxHealth = 100;
         [SerializeField, Min(0)] private int workerSlots = 0;
         [SerializeField, Min(0)] private int storageCapacity = 0;
-        [Tooltip("Сколько секунд здание строится до готовности. 0 = мгновенно.")]
-        [SerializeField, Min(0f)] private float buildTimeSeconds = 0f;
+        [SerializeField, Min(0f)] private float buildTimeSeconds = 5f;
+
+        [Tooltip("Тип работы, которую даёт здание. None — если не рабочее место.")]
+        [SerializeField] private JobType jobType = JobType.None;
+
+        [Tooltip("Приоритет вакансии. Чем выше — тем раньше назначаются жители.")]
+        [SerializeField] private JobPriority jobPriority = JobPriority.Normal;
+
+        [Tooltip("Сколько жителей может жить в здании. Только для категории Housing.")]
+        [SerializeField, Min(0)] private int maxResidents = 0;
 
         [Header("Cost")]
         [Tooltip("Стоимость постройки. Возврат при сносе — 50% (задача 2.5).")]
@@ -34,51 +44,58 @@ namespace KingdomsClone.Data
         [SerializeField, Range(-10, 10)] private int happinessBonus = 0;
         [SerializeField, Min(0f)] private float happinessRadius = 0f;
 
-        // ---------- Публичные геттеры (read-only снаружи) ----------
+        // ============ ГЕТТЕРЫ ============
+
         public GameObject Prefab => prefab;
         public Vector2Int Size => size;
         public BuildingCategory Category => category;
         public int MaxHealth => maxHealth;
         public int WorkerSlots => workerSlots;
+        public JobType JobType => jobType;
+        public JobPriority JobPriority => jobPriority;
         public int StorageCapacity => storageCapacity;
         public float BuildTimeSeconds => buildTimeSeconds;
+        public int MaxResidents => maxResidents;
         public IReadOnlyList<ResourceAmount> BuildCost => buildCost;
         public ProductionRecipe Production => production;
         public int HappinessBonus => happinessBonus;
         public float HappinessRadius => happinessRadius;
 
-        // ---------- Производные флаги ----------
+        // ============ ПРОИЗВОДНЫЕ ФЛАГИ ============
+
         public bool IsProducer => production != null && production.HasOutputs;
         public bool IsStorage => storageCapacity > 0;
         public bool IsHousing => category == BuildingCategory.Housing;
         public bool IsDefense => category == BuildingCategory.Defense;
 
-#if UNITY_EDITOR
-        protected override void OnValidate()
-        {
-            base.OnValidate(); // родительский DataSO заполняет id из имени ассета
+        // ============ ВАЛИДАЦИЯ В РЕДАКТОРЕ ============
 
-            // ФИКС: защита от некорректного размера (0 или отрицательный)
+#if UNITY_EDITOR
+        private void OnValidate()
+        {
             if (size.x < 1) size = new Vector2Int(1, size.y);
             if (size.y < 1) size = new Vector2Int(size.x, 1);
-
-            // ФИКС: защита от невозможных значений
             if (maxHealth < 1) maxHealth = 1;
             if (workerSlots < 0) workerSlots = 0;
             if (storageCapacity < 0) storageCapacity = 0;
             if (buildTimeSeconds < 0f) buildTimeSeconds = 0f;
-            if (happinessRadius < 0f) happinessRadius = 0f;
+            if (maxResidents < 0) maxResidents = 0;
 
-            // Валидация стоимости: предупреждаем в консоли о некорректных записях
+            // Жильё без жителей — бессмысленно. Если категория Housing,
+            // а maxResidents = 0, ставим минимум 1.
+            if (category == BuildingCategory.Housing && maxResidents < 1)
+                maxResidents = 1;
+
+            // Валидация стоимости
             if (buildCost != null)
             {
-                foreach (var ra in buildCost)
+                for (int i = buildCost.Count - 1; i >= 0; i--)
                 {
-                    if (ra == null) continue;
-                    if (ra.Resource == null)
-                        Debug.LogWarning($"[BuildingDataSO] '{name}': в BuildCost есть запись с пустым Resource.", this);
-                    if (ra.Amount < 0)
-                        Debug.LogWarning($"[BuildingDataSO] '{name}': в BuildCost отрицательное количество ({ra.Amount}).", this);
+                    if (buildCost[i] == null || buildCost[i].Resource == null)
+                    {
+                        Debug.LogWarning($"[{name}] BuildCost[{i}]: пустая запись. Удалена.");
+                        buildCost.RemoveAt(i);
+                    }
                 }
             }
         }

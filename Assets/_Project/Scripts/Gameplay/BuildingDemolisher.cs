@@ -48,6 +48,10 @@ namespace KingdomsClone.Gameplay
 
         public void StartDemolition()
         {
+            // Отменяем режим строительства, если он был активен
+            var placer = FindObjectOfType<BuildingPlacer>();
+            if (placer != null) placer.CancelPlacement();
+
             _isActive = true;
             Debug.Log("[Demolisher] Режим сноса активен. Клик по зданию — снести. Esc/RMB — отмена.");
         }

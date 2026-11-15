@@ -23,6 +23,9 @@ MonoBehaviour:
   workerSlots: 0
   storageCapacity: 0
   buildTimeSeconds: 3
+  jobType: 0
+  jobPriority: 1
+  maxResidents: 3
   buildCost:
   - resource: {fileID: 11400000, guid: ac161cb7f7d3d0242883de59bfa61b93, type: 2}
     amount: 10

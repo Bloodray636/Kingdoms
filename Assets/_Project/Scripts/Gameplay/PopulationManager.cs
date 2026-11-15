@@ -1,0 +1,91 @@
+using UnityEngine;
+using KingdomsClone.Core;
+using KingdomsClone.Core.Events;
+using KingdomsClone.Data;
+
+namespace KingdomsClone.Gameplay
+{
+    [DefaultExecutionOrder(-730)]
+    public class PopulationManager : MonoBehaviour
+    {
+        public static PopulationManager Instance { get; private set; }
+
+        [Header("Settings")]
+        [Tooltip("Минимальное счастье для прихода новых жителей (0..10).")]
+        [SerializeField] private float happinessThreshold = 5f;
+
+        [Tooltip("Раз в сколько игровых дней пробуем заспавнить жителя.")]
+        [SerializeField] private int spawnIntervalDays = 1;
+
+        [Tooltip("Сколько жителей максимум может появиться за один день.")]
+        [SerializeField] private int maxSpawnsPerDay = 1;
+
+        private int _lastSpawnDay = -999;
+
+        private void Awake()
+        {
+            if (Instance != null && Instance != this) { Destroy(gameObject); return; }
+            Instance = this;
+            DontDestroyOnLoad(gameObject);
+        }
+
+        private void OnDestroy() { if (Instance == this) Instance = null; }
+
+        private void OnEnable() => EventBus.Subscribe<DayChangedEvent>(OnDayChanged);
+        private void OnDisable() => EventBus.Unsubscribe<DayChangedEvent>(OnDayChanged);
+
+        private void OnDayChanged(DayChangedEvent e)
+        {
+            if (e.NewDay - _lastSpawnDay < spawnIntervalDays) return;
+            TrySpawn();
+        }
+
+        /// <summary>
+        /// Попробовать заспавнить жителя по правилам (счастье + место).
+        /// Возвращает true, если спавн удался.
+        /// </summary>
+        public bool TrySpawn(bool ignoreHappiness = false)
+        {
+            var vm = VillagerManager.Instance;
+            var hm = HousingManager.Instance;
+            var hs = HappinessSystem.Instance;
+
+            if (vm == null || hm == null)
+            {
+                Debug.LogWarning("[Population] VillagerManager/HousingManager не в сцене!");
+                return false;
+            }
+
+            float happiness = hs != null ? hs.CurrentHappiness : 5f;
+            if (!ignoreHappiness && happiness < happinessThreshold)
+            {
+                Debug.Log($"[Population] Спавн отменён: счастье {happiness:F1} < {happinessThreshold:F1}");
+                return false;
+            }
+
+            var house = hm.GetFreeHouse();
+            if (house == null)
+            {
+                Debug.Log("[Population] Спавн отменён: нет свободного жилья.");
+                return false;
+            }
+
+            var data = GameDataSO.Instance?.GetUnit("Unit_Villager");
+            if (data == null)
+            {
+                Debug.LogError("[Population] Unit_Villager не найден в GameDataSO!");
+                return false;
+            }
+
+            // Спавн в клетке дома
+            var villager = vm.SpawnVillager(house.GridPosition, data, house);
+            if (villager == null) return false;
+
+            house.TryAddResident(villager.gameObject);
+            _lastSpawnDay = TimeManager.Instance != null ? TimeManager.Instance.CurrentDay : 0;
+
+            Debug.Log($"[Population] Новый житель! Всего: {vm.AllVillagers.Count} / {hm.GetTotalCapacity()}");
+            return true;
+        }
+    }
+}

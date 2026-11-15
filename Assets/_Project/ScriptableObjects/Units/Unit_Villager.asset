@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Unit_Villager
   m_EditorClassIdentifier: Assembly-CSharp::KingdomsClone.Data.UnitDataSO
   id: Unit_Villager
-  displayName: 
+  displayName: "\u0416\u0438\u0442\u0435\u043B\u044C"
   description: 
   icon: {fileID: 0}
   prefab: {fileID: 0}

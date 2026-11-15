@@ -4,6 +4,7 @@ using KingdomsClone.Data;
 using KingdomsClone.Grid;
 using KingdomsClone.Core;
 using KingdomsClone.Core.Events;
+using System.Collections.Generic;
 
 namespace KingdomsClone.Gameplay
 {
@@ -299,8 +300,11 @@ namespace KingdomsClone.Gameplay
                 buildingBase.Initialize(_selectedBuilding, _currentCell, _currentRotation);
 
                 // 4. Регистрация клеток
-                foreach (var cell in buildingBase.GetOccupiedCells())
-                    grid.RegisterBuilding(cell.x, cell.y, newBuilding);
+                var occupied = new List<Vector2Int>(buildingBase.GetOccupiedCells());
+                foreach (var cell in occupied)
+                    grid.RegisterBuilding(cell.x, cell.y, newBuilding, _selectedBuilding.IsHousing);
+
+                EventBus.Publish(new PathInvalidationEvent { Cells = occupied });
 
                 Debug.Log($"[BuildingPlacer] Построено: {_selectedBuilding.DisplayName} " +
                           $"({rotated.x}x{rotated.y}) anchor={_currentCell} rot={_currentRotation.eulerAngles.y}");

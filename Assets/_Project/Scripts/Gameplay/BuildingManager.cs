@@ -1,13 +1,11 @@
 using System.Collections.Generic;
 using UnityEngine;
 using KingdomsClone.Grid;
+using KingdomsClone.Core;
+using KingdomsClone.Core.Events;
 
 namespace KingdomsClone.Gameplay
 {
-    /// <summary>
-    /// Реестр всех зданий в сцене. Нужен, чтобы массово удалять здания
-    /// при перегенерации карты или загрузке сейва.
-    /// </summary>
     [DefaultExecutionOrder(-750)]
     public class BuildingManager : MonoBehaviour
     {
@@ -45,22 +43,24 @@ namespace KingdomsClone.Gameplay
         /// </summary>
         public void ClearAllSilent()
         {
-            // Копия — потому что Destroy вызовет OnDestroy, который меняет _buildings
             var copy = new List<BuildingBase>(_buildings);
             foreach (var b in copy)
             {
                 if (b == null) continue;
 
-                // Снимаем регистрацию с клеток (если сетка ещё старая)
                 if (GridSystem.Instance != null)
                 {
                     foreach (var cell in b.GetOccupiedCells())
-                        GridSystem.Instance.UnregisterBuilding(cell.x, cell.y);
+                        GridSystem.Instance.UnregisterBuilding(cell.x, cell.y, b.gameObject);
                 }
 
                 Destroy(b.gameObject);
             }
             _buildings.Clear();
+
+            // ФИКС: уведомляем Pathfinding, что карта изменилась
+            EventBus.Publish(new PathCacheClearEvent());
+
             Debug.Log($"[BuildingManager] Уничтожено {copy.Count} зданий.");
         }
     }
