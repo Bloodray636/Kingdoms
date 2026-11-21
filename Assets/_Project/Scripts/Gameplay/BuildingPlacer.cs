@@ -19,6 +19,7 @@ namespace KingdomsClone.Gameplay
         private GameObject _ghostObject;
         private MeshRenderer[] _ghostRenderers;
         private bool _isPlacing = false;
+        public bool IsPlacing => _isPlacing;
         private Vector2Int _currentCell;
         private Quaternion _currentRotation = Quaternion.identity;
 

@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 38db2ce41dc11ef49a3c6303d0022db6, type: 3}
+  m_Name: Recipe_Planks
+  m_EditorClassIdentifier: Assembly-CSharp::KingdomsClone.Data.RecipeDataSO
+  id: Recipe_Planks
+  displayName: "\u0414\u043E\u0441\u043A\u0438 (\u0438\u0437 \u0434\u0435\u0440\u0435\u0432\u0430)"
+  description: 
+  icon: {fileID: 0}
+  inputs:
+  - resource: {fileID: 11400000, guid: ac161cb7f7d3d0242883de59bfa61b93, type: 2}
+    amount: 2
+  outputs:
+  - resource: {fileID: 11400000, guid: 9341fd66e6c071945b072d6d7d7287a9, type: 2}
+    amount: 1
+  cycleSeconds: 8

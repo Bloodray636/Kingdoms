@@ -78,16 +78,32 @@ namespace KingdomsClone.Gameplay
 
         private void OnBuildingRemoved(BuildingRemovedEvent e)
         {
-            // Все вакансии этого здания снимаем, жителей освобождаем
             var toRemove = new List<Job>();
+
             foreach (var job in _vacancies)
             {
                 if (job.Workplace == null) { toRemove.Add(job); continue; }
                 if (job.Workplace.Data == null) { toRemove.Add(job); continue; }
+                if (job.Workplace.State != BuildingState.Active) { toRemove.Add(job); continue; }
             }
-            foreach (var j in toRemove) _vacancies.Remove(j);
 
-            // После сноса здания перепроверим безработных
+            foreach (var job in toRemove)
+            {
+                var v = job.AssignedVillager;
+                job.AssignedVillager = null;
+                _vacancies.Remove(job);
+
+                if (v != null)
+                {
+                    v.ClearJob();
+                    RegisterUnemployed(v);
+                }
+            }
+
+            if (toRemove.Count > 0)
+                Debug.Log($"[JobManager] Снято {toRemove.Count} вакансий неактивных зданий");
+
+            // После сноса перепроверим безработных — они могут занять другие вакансии
             TryAssignAll();
         }
 
@@ -198,6 +214,11 @@ namespace KingdomsClone.Gameplay
             foreach (var j in _vacancies)
                 if (j.Workplace == building) result.Add(j);
             return result;
+        }
+
+        public void ClearAllUnemployed()
+        {
+            _unemployed.Clear();
         }
     }
 }

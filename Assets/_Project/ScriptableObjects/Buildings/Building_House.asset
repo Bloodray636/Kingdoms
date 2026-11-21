@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: "\u0425\u0438\u0431\u0430\u0440\u043A\u0430"
   description: 
   icon: {fileID: 0}
-  prefab: {fileID: 1726167548140540349, guid: 802eeef9fe98db6428bf76a093b96471, type: 3}
+  prefab: {fileID: 3571465527470541039, guid: 4214ddca33ad9484185ba69e9fa587f5, type: 3}
   size: {x: 1, y: 1}
   category: 0
   maxHealth: 50

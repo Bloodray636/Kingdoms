@@ -25,6 +25,7 @@ MonoBehaviour:
   buildTimeSeconds: 5
   jobType: 1
   jobPriority: 2
+  recipe: {fileID: 11400000, guid: db911cff45487a4409eec3ba22ad48bc, type: 2}
   maxResidents: 0
   buildCost:
   - resource: {fileID: 11400000, guid: ac161cb7f7d3d0242883de59bfa61b93, type: 2}
@@ -33,7 +34,7 @@ MonoBehaviour:
     inputs: []
     outputs:
     - resource: {fileID: 11400000, guid: ac161cb7f7d3d0242883de59bfa61b93, type: 2}
-      amount: 0
+      amount: 1
     cycleSeconds: 10
   happinessBonus: 0
   happinessRadius: 0

@@ -20,9 +20,12 @@ MonoBehaviour:
   size: {x: 2, y: 2}
   category: 4
   maxHealth: 150
-  workerSlots: 1
+  workerSlots: 0
   storageCapacity: 200
   buildTimeSeconds: 5
+  jobType: 0
+  jobPriority: 1
+  maxResidents: 0
   buildCost:
   - resource: {fileID: 11400000, guid: ac161cb7f7d3d0242883de59bfa61b93, type: 2}
     amount: 20

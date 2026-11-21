@@ -14,6 +14,7 @@ namespace KingdomsClone.Gameplay
         [SerializeField] private Material invalidPreviewMaterial;
 
         private bool _isPlacing = false;
+        public bool IsActive => _isPlacing;
         private Vector2Int _lastCell;
         private GameObject _ghost;
         private MeshRenderer _ghostRenderer;

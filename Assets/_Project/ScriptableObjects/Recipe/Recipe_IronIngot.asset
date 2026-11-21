@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 38db2ce41dc11ef49a3c6303d0022db6, type: 3}
+  m_Name: Recipe_IronIngot
+  m_EditorClassIdentifier: Assembly-CSharp::KingdomsClone.Data.RecipeDataSO
+  id: Recipe_IronIngot
+  displayName: "\u041F\u043B\u0430\u0432\u043A\u0430 \u0436\u0435\u043B\u0435\u0437\u0430"
+  description: 
+  icon: {fileID: 0}
+  inputs:
+  - resource: {fileID: 11400000, guid: 6c07b937e47ec1346866783afb98c577, type: 2}
+    amount: 2
+  - resource: {fileID: 11400000, guid: ac161cb7f7d3d0242883de59bfa61b93, type: 2}
+    amount: 1
+  outputs:
+  - resource: {fileID: 11400000, guid: 21ad3e2a0b2ad7349bc40a55b445aa22, type: 2}
+    amount: 1
+  cycleSeconds: 10

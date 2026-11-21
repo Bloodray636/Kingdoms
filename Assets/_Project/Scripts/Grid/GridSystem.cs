@@ -62,10 +62,13 @@ namespace KingdomsClone.Grid
 
             if (BuildingManager.Instance == null)
             {
-                Debug.LogError("[GridSystem] КРИТИЧЕСКАЯ ОШИБКА КОНФИГУРАЦИИ: BuildingManager отсутствует в сцене! " +
-                               "Перегенерация карты оставит старые здания. Добавь BuildingManager.");
+                Debug.LogError("[GridSystem] КРИТИЧЕСКАЯ ОШИБКА КОНФИГУРАЦИИ: BuildingManager отсутствует! " + "Перегенерация оставит старые здания. Добавь BuildingManager.");
                 return;
             }
+
+            if (VillagerManager.Instance != null)
+                VillagerManager.Instance.ClearAllSilent();
+
             BuildingManager.Instance.ClearAllSilent();
 
             _grid = MapGenerator.Generate(width, height, mapSeed, out Vector2Int startPos);

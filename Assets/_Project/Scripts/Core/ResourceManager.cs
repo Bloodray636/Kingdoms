@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using KingdomsClone.Data;
@@ -10,12 +11,29 @@ namespace KingdomsClone.Core
     {
         public static ResourceManager Instance { get; private set; }
 
+        [Header("Settings")]
+        [Tooltip("Если включено, AddResource не даст превысить ResourceDataSO.MaxStack.")]
+        [SerializeField] private bool respectMaxStack = true;
+
         private readonly Dictionary<string, int> _resources = new();
 
-        [Header("Settings")]
-        [Tooltip("Если включено, AddResource не даст превысить ResourceDataSO.MaxStack. " +
-                 "Если суммарная ёмкость складов меньше — это уже проблема складов, а не глобального пула.")]
-        [SerializeField] private bool respectMaxStack = true;
+        // ═══════ C# EVENTS (прямая подписка для UI) ═══════
+
+        /// <summary>
+        /// Срабатывает при любом изменении ресурса (добавление или списание).
+        /// Параметры: resource, oldAmount, newAmount.
+        /// Для UI-панелей удобнее, чем EventBus, потому что подписка идёт напрямую.
+        /// </summary>
+        public event Action<ResourceDataSO, int, int> OnResourceChanged;
+
+        /// <summary>
+        /// Срабатывает, если попытка потратить ресурс провалилась.
+        /// Параметры: resource, needed, currentAmount.
+        /// Используется для UI-фидбэка ("Недостаточно дерева!").
+        /// </summary>
+        public event Action<ResourceDataSO, int, int> OnResourceSpendFailed;
+
+        // ═══════ LIFECYCLE ═══════
 
         private void Awake()
         {
@@ -31,7 +49,9 @@ namespace KingdomsClone.Core
             }
         }
 
-        // ========== Чтение ==========
+        private void OnDestroy() { if (Instance == this) Instance = null; }
+
+        // ═══════ ЧТЕНИЕ ═══════
 
         public int GetAmount(ResourceDataSO resource)
         {
@@ -39,30 +59,49 @@ namespace KingdomsClone.Core
             return _resources.TryGetValue(resource.Id, out var amt) ? amt : 0;
         }
 
-        // ========== Добавление ==========
-
         /// <summary>
-        /// Добавить ресурс. amount ДОЛЖЕН быть >= 0. Отрицательные значения — ошибка вызывающего кода.
-        /// Для списания используй SpendResources().
+        /// Все текущие ресурсы и их количества. Для UI-панелей.
         /// </summary>
+        public IReadOnlyList<(ResourceDataSO resource, int amount)> GetAll()
+        {
+            var list = new List<(ResourceDataSO, int)>();
+            var data = GameDataSO.Instance;
+            if (data == null) return list;
+
+            foreach (var res in data.Resources)
+            {
+                if (res == null) continue;
+                int amount = _resources.TryGetValue(res.Id, out var amt) ? amt : 0;
+                list.Add((res, amount));
+            }
+            return list;
+        }
+
+        // ═══════ ДОБАВЛЕНИЕ ═══════
+
         public void AddResource(ResourceDataSO resource, int amount)
         {
-            if (resource == null) { Debug.LogWarning("[ResourceManager] resource == null"); return; }
-            if (amount < 0) { Debug.LogError($"[ResourceManager] AddResource отрицательный ({amount}). Используй SpendResources."); return; }
+            if (resource == null) { Debug.LogWarning("[ResourceManager] AddResource: resource == null"); return; }
+            if (amount < 0)
+            {
+                Debug.LogError($"[ResourceManager] AddResource с отрицательным amount ({amount}) для '{resource.Id}'. " +
+                               "Используй SpendResources() для списания.");
+                return;
+            }
             if (amount == 0) return;
 
             if (!_resources.ContainsKey(resource.Id)) _resources[resource.Id] = 0;
-            long before = _resources[resource.Id];
-            long after = before + amount;
+            int oldAmount = _resources[resource.Id];
+            long newAmountLong = (long)oldAmount + amount;
+            int newAmount = (int)Mathf.Min(newAmountLong, int.MaxValue);
 
             if (respectMaxStack && resource.MaxStack > 0)
-                after = System.Math.Min(after, resource.MaxStack);
+                newAmount = Mathf.Min(newAmount, resource.MaxStack);
 
-            if (after > int.MaxValue) after = int.MaxValue;
-            if (after == before) return;
+            if (newAmount == oldAmount) return;
 
-            _resources[resource.Id] = (int)after;
-            EventBus.Publish(new ResourceChangedEvent { Resource = resource, NewAmount = _resources[resource.Id] });
+            _resources[resource.Id] = newAmount;
+            PublishChange(resource, oldAmount, newAmount);
         }
 
         public void AddAllResources(int amount)
@@ -77,60 +116,45 @@ namespace KingdomsClone.Core
             foreach (var res in data.Resources) AddResource(res, amount);
         }
 
-        // ========== Проверка и списание ==========
+        // ═══════ ОДИНОЧНОЕ СПИСАНИЕ ═══════
 
         /// <summary>
-        /// Агрегирует cost-лист в словарь "ресурс → суммарное количество".
-        /// Отрицательные и нулевые записи отбрасываются с варнингом.
+        /// Списать одиночный ресурс. Возвращает false, если не хватает.
         /// </summary>
-        private Dictionary<ResourceDataSO, int> AggregateCost(IReadOnlyList<ResourceAmount> cost)
+        public bool SpendSingle(ResourceDataSO resource, int amount)
         {
-            var result = new Dictionary<ResourceDataSO, int>();
-            if (cost == null) return result;
+            if (resource == null || amount <= 0) return false;
 
-            foreach (var ra in cost)
+            int oldAmount = GetAmount(resource);
+            if (oldAmount < amount)
             {
-                if (ra == null)
-                {
-                    Debug.LogError("[ResourceManager] Cost содержит null ResourceAmount. Стоимость невалидна.");
-                    return null;
-                }
-                if (ra.Resource == null)
-                {
-                    Debug.LogError("[ResourceManager] Cost содержит ResourceAmount с null Resource. Стоимость невалидна.");
-                    return null;
-                }
-                if (ra.Amount < 0)
-                {
-                    Debug.LogError($"[ResourceManager] Стоимость с отрицательным amount ({ra.Amount}) для '{ra.Resource.Id}'. Стоимость невалидна.");
-                    return null;
-                }
-                if (ra.Amount == 0) continue;
-
-                // ФИКС 2.2: long для защиты от переполнения при суммировании
-                long current = result.TryGetValue(ra.Resource, out var v) ? v : 0;
-                long sum = current + ra.Amount;
-                if (sum > int.MaxValue)
-                {
-                    Debug.LogError($"[ResourceManager] Суммарная стоимость '{ra.Resource.Id}' превышает int.MaxValue. Стоимость невалидна.");
-                    return null;
-                }
-                result[ra.Resource] = (int)sum;
+                OnResourceSpendFailed?.Invoke(resource, amount, oldAmount);
+                return false;
             }
-            return result;
-        }
 
-        public bool HasResources(IReadOnlyList<ResourceAmount> cost)
-        {
-            var aggregated = AggregateCost(cost);
-            if (aggregated == null) return false; // невалидная стоимость
-            foreach (var kvp in aggregated)
-            {
-                if (GetAmount(kvp.Key) < kvp.Value) return false;
-            }
+            int newAmount = oldAmount - amount;
+            _resources[resource.Id] = newAmount;
+            PublishChange(resource, oldAmount, newAmount);
             return true;
         }
 
+        // ═══════ ПАКЕТНОЕ СПИСАНИЕ (АТОМАРНОЕ) ═══════
+
+        /// <summary>
+        /// Хватает ли ресурсов. Дубликаты в cost суммируются.
+        /// </summary>
+        public bool HasResources(IReadOnlyList<ResourceAmount> cost)
+        {
+            var aggregated = AggregateCost(cost);
+            if (aggregated == null) return false;
+            foreach (var kvp in aggregated)
+                if (GetAmount(kvp.Key) < kvp.Value) return false;
+            return true;
+        }
+
+        /// <summary>
+        /// Атомарное списание. Либо всё, либо ничего.
+        /// </summary>
         public bool SpendResources(IReadOnlyList<ResourceAmount> cost)
         {
             var aggregated = AggregateCost(cost);
@@ -141,25 +165,86 @@ namespace KingdomsClone.Core
             }
             if (aggregated.Count == 0) return true;
 
+            // Проверяем ВСЁ
             foreach (var kvp in aggregated)
             {
-                if (GetAmount(kvp.Key) < kvp.Value) return false;
+                if (GetAmount(kvp.Key) < kvp.Value)
+                {
+                    Debug.LogWarning($"[ResourceManager] SpendResources: не хватает '{kvp.Key.Id}' " +
+                                     $"(нужно {kvp.Value}, есть {GetAmount(kvp.Key)})");
+                    OnResourceSpendFailed?.Invoke(kvp.Key, kvp.Value, GetAmount(kvp.Key));
+                    return false;
+                }
             }
 
+            // Списываем ВСЁ
+            var oldAmounts = new Dictionary<ResourceDataSO, int>();
             foreach (var kvp in aggregated)
             {
+                oldAmounts[kvp.Key] = _resources[kvp.Key.Id];
                 _resources[kvp.Key.Id] -= kvp.Value;
             }
 
+            // Публикуем ПОСЛЕ списания всех (атомарность)
             foreach (var kvp in aggregated)
-            {
-                EventBus.Publish(new ResourceChangedEvent
-                {
-                    Resource = kvp.Key,
-                    NewAmount = _resources[kvp.Key.Id]
-                });
-            }
+                PublishChange(kvp.Key, oldAmounts[kvp.Key], _resources[kvp.Key.Id]);
+
             return true;
+        }
+
+        // ═══════ ВНУТРЕННИЕ ═══════
+
+        private void PublishChange(ResourceDataSO resource, int oldAmount, int newAmount)
+        {
+            // C# event (прямая подписка)
+            OnResourceChanged?.Invoke(resource, oldAmount, newAmount);
+
+            // EventBus (глобальный pub/sub)
+            EventBus.Publish(new ResourceChangedEvent
+            {
+                Resource = resource,
+                OldAmount = oldAmount,
+                NewAmount = newAmount
+            });
+        }
+
+        /// <summary>
+        /// Агрегирует cost-лист. null = невалидная стоимость (отрицательная, null ресурс).
+        /// </summary>
+        private Dictionary<ResourceDataSO, int> AggregateCost(IReadOnlyList<ResourceAmount> cost)
+        {
+            var result = new Dictionary<ResourceDataSO, int>();
+            if (cost == null) return result;
+
+            foreach (var ra in cost)
+            {
+                if (ra == null)
+                {
+                    Debug.LogError("[ResourceManager] Cost содержит null ResourceAmount.");
+                    return null;
+                }
+                if (ra.Resource == null)
+                {
+                    Debug.LogError("[ResourceManager] Cost содержит ResourceAmount с null Resource.");
+                    return null;
+                }
+                if (ra.Amount < 0)
+                {
+                    Debug.LogError($"[ResourceManager] Отрицательный amount ({ra.Amount}) для '{ra.Resource.Id}' — ЗАПРЕЩЕНО.");
+                    return null;
+                }
+                if (ra.Amount == 0) continue;
+
+                long current = result.TryGetValue(ra.Resource, out var v) ? v : 0;
+                long sum = current + ra.Amount;
+                if (sum > int.MaxValue)
+                {
+                    Debug.LogError($"[ResourceManager] Сумма '{ra.Resource.Id}' > int.MaxValue.");
+                    return null;
+                }
+                result[ra.Resource] = (int)sum;
+            }
+            return result;
         }
     }
 }

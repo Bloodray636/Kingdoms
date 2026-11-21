@@ -29,6 +29,10 @@ namespace KingdomsClone.Data
         [Tooltip("Приоритет вакансии. Чем выше — тем раньше назначаются жители.")]
         [SerializeField] private JobPriority jobPriority = JobPriority.Normal;
 
+        [Header("Production")]
+        [Tooltip("Рецепт производства (SO). Если задан — используется вместо legacy ProductionRecipe.")]
+        [SerializeField] private RecipeDataSO recipe;
+
         [Tooltip("Сколько жителей может жить в здании. Только для категории Housing.")]
         [SerializeField, Min(0)] private int maxResidents = 0;
 
@@ -58,19 +62,23 @@ namespace KingdomsClone.Data
         public int MaxResidents => maxResidents;
         public IReadOnlyList<ResourceAmount> BuildCost => buildCost;
         public ProductionRecipe Production => production;
+        public RecipeDataSO Recipe => recipe;
         public int HappinessBonus => happinessBonus;
         public float HappinessRadius => happinessRadius;
 
         // ============ ПРОИЗВОДНЫЕ ФЛАГИ ============
 
-        public bool IsProducer => production != null && production.HasOutputs;
+        public bool IsProducer =>
+            (recipe != null && recipe.HasOutputs) ||
+            (production != null && production.HasOutputs);
+
         public bool IsStorage => storageCapacity > 0;
         public bool IsHousing => category == BuildingCategory.Housing;
         public bool IsDefense => category == BuildingCategory.Defense;
 
         // ============ ВАЛИДАЦИЯ В РЕДАКТОРЕ ============
 
-#if UNITY_EDITOR
+    #if UNITY_EDITOR
         private void OnValidate()
         {
             if (size.x < 1) size = new Vector2Int(1, size.y);
@@ -81,24 +89,23 @@ namespace KingdomsClone.Data
             if (buildTimeSeconds < 0f) buildTimeSeconds = 0f;
             if (maxResidents < 0) maxResidents = 0;
 
-            // Жильё без жителей — бессмысленно. Если категория Housing,
-            // а maxResidents = 0, ставим минимум 1.
             if (category == BuildingCategory.Housing && maxResidents < 1)
                 maxResidents = 1;
 
-            // Валидация стоимости
+            // ФИКС: удаляем только полностью null элементы.
+            // НЕ трогаем элементы с Resource == null — пользователь их ещё заполняет.
             if (buildCost != null)
             {
                 for (int i = buildCost.Count - 1; i >= 0; i--)
                 {
-                    if (buildCost[i] == null || buildCost[i].Resource == null)
+                    if (buildCost[i] == null)
                     {
-                        Debug.LogWarning($"[{name}] BuildCost[{i}]: пустая запись. Удалена.");
+                        Debug.LogWarning($"[{name}] BuildCost[{i}]: null запись. Удалена.");
                         buildCost.RemoveAt(i);
                     }
                 }
             }
         }
-#endif
+    #endif
     }
 }
