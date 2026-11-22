@@ -29,12 +29,20 @@ namespace KingdomsClone.Gameplay
 
         private void Awake()
         {
-            if (Instance != null && Instance != this) { Destroy(gameObject); return; }
+            if (Instance != null && Instance != this) { 
+                Destroy(gameObject); 
+                return; 
+            }
+
             Instance = this;
             DontDestroyOnLoad(gameObject);
         }
 
-        private void OnDestroy() { if (Instance == this) Instance = null; }
+        private void OnDestroy() { 
+            if (Instance == this) {
+                Instance = null;
+            } 
+        }
 
         private void OnEnable()
         {
@@ -49,17 +57,20 @@ namespace KingdomsClone.Gameplay
         private void Update()
         {
             _tickTimer += Time.deltaTime;
+
             if (_tickTimer < assignmentTickSeconds) return;
+
             _tickTimer = 0f;
             TryAssignAll();
         }
 
-        // ============ РЕГИСТРАЦИЯ ВАКАНСИЙ ============
+        // РЕГИСТРАЦИЯ ВАКАНСИЙ
 
         public void RegisterVacancy(Job job)
         {
             if (job == null) return;
             if (_vacancies.Contains(job)) return;
+
             _vacancies.Add(job);
         }
 
@@ -68,11 +79,13 @@ namespace KingdomsClone.Gameplay
             if (job == null) return;
             _vacancies.Remove(job);
 
-            if (job.AssignedVillager != null)
-            {
+            if (job.AssignedVillager != null) {
                 var v = job.AssignedVillager;
                 job.AssignedVillager = null;
-                if (v != null) v.ClearJob();
+
+                if (v != null) {
+                    v.ClearJob();
+                }
             }
         }
 
@@ -80,47 +93,60 @@ namespace KingdomsClone.Gameplay
         {
             var toRemove = new List<Job>();
 
-            foreach (var job in _vacancies)
-            {
-                if (job.Workplace == null) { toRemove.Add(job); continue; }
-                if (job.Workplace.Data == null) { toRemove.Add(job); continue; }
-                if (job.Workplace.State != BuildingState.Active) { toRemove.Add(job); continue; }
+            foreach (var job in _vacancies) {
+                if (job.Workplace == null) { 
+                    toRemove.Add(job); 
+                    continue; 
+                }
+
+                if (job.Workplace.Data == null) { 
+                    toRemove.Add(job); 
+                    continue; 
+                }
+
+                if (job.Workplace.State != BuildingState.Active) { 
+                    toRemove.Add(job); 
+                    continue; 
+                }
             }
 
-            foreach (var job in toRemove)
-            {
+            foreach (var job in toRemove) {
                 var v = job.AssignedVillager;
                 job.AssignedVillager = null;
                 _vacancies.Remove(job);
 
-                if (v != null)
-                {
+                if (v != null) {
                     v.ClearJob();
                     RegisterUnemployed(v);
                 }
             }
 
-            if (toRemove.Count > 0)
+            if (toRemove.Count > 0) {
                 Debug.Log($"[JobManager] Снято {toRemove.Count} вакансий неактивных зданий");
+            }
 
-            // После сноса перепроверим безработных — они могут занять другие вакансии
             TryAssignAll();
         }
 
-        // ============ РЕГИСТРАЦИЯ ЖИТЕЛЕЙ ============
+        // РЕГИСТРАЦИЯ ЖИТЕЛЕЙ
 
         public void RegisterUnemployed(Villager v)
         {
             if (v == null) return;
-            if (!_unemployed.Contains(v)) _unemployed.Add(v);
+
+            if (!_unemployed.Contains(v)) {
+                _unemployed.Add(v);
+            }
         }
 
         public void UnregisterUnemployed(Villager v)
         {
-            if (v != null) _unemployed.Remove(v);
+            if (v != null) {
+                _unemployed.Remove(v);
+            }
         }
 
-        // ============ НАЗНАЧЕНИЕ ============
+        // НАЗНАЧЕНИЕ
 
         public void TryAssignAll()
         {
@@ -134,8 +160,15 @@ namespace KingdomsClone.Gameplay
 
             foreach (var v in _unemployed)
             {
-                if (v == null) { toRemove.Add(v); continue; }
-                if (v.CurrentJob != null) { toRemove.Add(v); continue; } // уже назначен
+                if (v == null) { 
+                    toRemove.Add(v); 
+                    continue; 
+                }
+
+                if (v.CurrentJob != null) { 
+                    toRemove.Add(v); 
+                    continue; 
+                }
 
                 var bestJob = FindBestJobFor(v);
                 if (bestJob == null) continue;
@@ -144,13 +177,11 @@ namespace KingdomsClone.Gameplay
                 toRemove.Add(v);
             }
 
-            foreach (var v in toRemove) _unemployed.Remove(v);
+            foreach (var v in toRemove) {
+                _unemployed.Remove(v);
+            }
         }
 
-        /// <summary>
-        /// Ищем вакансию: сначала по приоритету (Critical > High > Normal > Low),
-        /// при равном приоритете — ближайшую.
-        /// </summary>
         private Job FindBestJobFor(Villager v)
         {
             var grid = GridSystem.Instance;
@@ -171,9 +202,7 @@ namespace KingdomsClone.Gameplay
 
                 if (dist > maxAssignmentRadius) continue;
 
-                // Лучше по приоритету, при равенстве — по дистанции
-                if (p > bestPriority || (p == bestPriority && dist < bestDist))
-                {
+                if (p > bestPriority || (p == bestPriority && dist < bestDist)) {
                     best = job;
                     bestPriority = p;
                     bestDist = dist;
@@ -187,22 +216,19 @@ namespace KingdomsClone.Gameplay
             job.AssignedVillager = v;
             v.AssignJob(job);
 
-            Debug.Log($"[JobManager] {v.gameObject.name} → {job.Type} [{job.Priority}] " +
-                      $"в {job.WorkplaceCell} (dist={Vector2Int.Distance(GridSystem.Instance.WorldToCell(v.transform.position), job.WorkplaceCell):F1})");
+            Debug.Log($"[JobManager] {v.gameObject.name} → {job.Type} [{job.Priority}] " + $"в {job.WorkplaceCell} (dist={Vector2Int.Distance(GridSystem.Instance.WorldToCell(v.transform.position), job.WorkplaceCell):F1})");
         }
 
-        // ============ ПУБЛИЧНЫЙ API ============
+        // API
 
-        /// <summary>
-        /// Освободить рабочее место (например, при смерти жителя).
-        /// </summary>
         public void ReleaseJob(Job job)
         {
             if (job == null) return;
+
             var v = job.AssignedVillager;
             job.AssignedVillager = null;
-            if (v != null) 
-            {
+
+            if (v != null)  {
                 v.ClearJob();
                 RegisterUnemployed(v);
             }
@@ -211,8 +237,13 @@ namespace KingdomsClone.Gameplay
         public List<Job> GetVacanciesAt(BuildingBase building)
         {
             var result = new List<Job>();
-            foreach (var j in _vacancies)
-                if (j.Workplace == building) result.Add(j);
+
+            foreach (var j in _vacancies) {
+                if (j.Workplace == building) {
+                    result.Add(j);
+                }
+            }
+
             return result;
         }
 

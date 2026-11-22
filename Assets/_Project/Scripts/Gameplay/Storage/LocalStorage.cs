@@ -4,10 +4,6 @@ using KingdomsClone.Data;
 
 namespace KingdomsClone.Gameplay
 {
-    /// <summary>
-    /// Локальный склад на здании. Хранит ресурсы с лимитом ёмкости.
-    /// Жители несут сюда произведённое. При заполнении — не принимает.
-    /// </summary>
     public class LocalStorage : MonoBehaviour
     {
         [SerializeField] private int _capacity = 200;
@@ -27,14 +23,16 @@ namespace KingdomsClone.Gameplay
 
         private void OnEnable()
         {
-            if (StorageManager.Instance != null)
+            if (StorageManager.Instance != null) {
                 StorageManager.Instance.Register(this);
+            }
         }
 
         private void OnDisable()
         {
-            if (StorageManager.Instance != null)
+            if (StorageManager.Instance != null) {
                 StorageManager.Instance.Unregister(this);
+            }
         }
 
         public void Initialize(int capacity)
@@ -52,24 +50,29 @@ namespace KingdomsClone.Gameplay
 
         public bool CanAccept(int amount) => FreeSpace >= amount;
 
-        /// <summary>
-        /// Положить ресурс. Возвращает СКОЛЬКО ПРИНЯТО (может быть меньше amount).
-        /// </summary>
+        public bool CanCover(ResourceDataSO res, int amount)
+        {
+            if (res == null || amount <= 0) return false;
+            return _items.TryGetValue(res.Id, out var have) && have >= amount;
+        }
+
         public int TryAdd(ResourceDataSO res, int amount)
         {
             if (res == null || amount <= 0) return 0;
+
             int accepted = Mathf.Min(amount, FreeSpace);
+
             if (accepted <= 0) return 0;
 
-            if (!_items.ContainsKey(res.Id)) _items[res.Id] = 0;
+            if (!_items.ContainsKey(res.Id)) {
+                _items[res.Id] = 0;
+            }
+
             _items[res.Id] += accepted;
             _usedSpace += accepted;
             return accepted;
         }
 
-        /// <summary>
-        /// Взять ресурс. Возвращает СКОЛЬКО ВЗЯТО (может быть меньше amount).
-        /// </summary>
         public int TryTake(ResourceDataSO res, int amount)
         {
             if (res == null || amount <= 0) return 0;
@@ -78,7 +81,11 @@ namespace KingdomsClone.Gameplay
             int taken = Mathf.Min(amount, have);
             _items[res.Id] -= taken;
             _usedSpace -= taken;
-            if (_items[res.Id] <= 0) _items.Remove(res.Id);
+
+            if (_items[res.Id] <= 0) {
+                _items.Remove(res.Id);
+            }
+
             return taken;
         }
 

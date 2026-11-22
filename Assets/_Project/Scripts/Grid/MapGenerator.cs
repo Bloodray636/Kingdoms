@@ -10,10 +10,10 @@ namespace KingdomsClone.Grid
             Cell[,] grid = new Cell[width, height];
             System.Random prng = new System.Random(seed);
 
-            // Смещения для уникальности карты
             float offsetX = (float)prng.NextDouble() * 1000f;
             float offsetY = (float)prng.NextDouble() * 1000f;
 
+            // ═══════ 1. БАЗОВАЯ ЗЕМЛЯ + КАМНИ ═══════
             for (int x = 0; x < width; x++)
             {
                 for (int y = 0; y < height; y++)
@@ -21,167 +21,286 @@ namespace KingdomsClone.Grid
                     float nx = (float)x / width;
                     float ny = (float)y / height;
 
-                    // 1. Генерируем высоту (остров)
-                    float noise = Mathf.PerlinNoise((nx * 5f) + offsetX, (ny * 5f) + offsetY);
-                    float detail = Mathf.PerlinNoise((nx * 15f) + offsetX, (ny * 15f) + offsetY);
-                    float finalNoise = (noise * 0.8f) + (detail * 0.2f);
-
-                    float distToCenter = Vector2.Distance(new Vector2(nx, ny), new Vector2(0.5f, 0.5f));
-                    float mask = Mathf.Clamp01(1f - (distToCenter * 2f)); 
-                    float elevation = finalNoise * mask;
+                    float biomeNoise = Mathf.PerlinNoise((nx * 10f) + offsetX + 50f, (ny * 10f) + offsetY + 50f);
+                    float detailNoise = Mathf.PerlinNoise((nx * 22f) + offsetX + 100f, (ny * 22f) + offsetY + 100f);
+                    float combined = (biomeNoise * 0.75f) + (detailNoise * 0.25f);
 
                     TileType type = TileType.Grass;
+                    float elevation = 1f + combined * 0.6f;
 
-                    // 2. Распределяем тайлы
-                    if (elevation < 0.15f) 
+                    if (combined > 0.60f && prng.NextDouble() < 0.45)
                     {
-                        type = TileType.Water;
-                    }
-                    else if (elevation < 0.20f) 
-                    {
-                        type = TileType.Fertile; // Пляж
-                    }
-                    else 
-                    {
-                        // ФИКС: Отдельный шум для биомов (камни и лес), не зависящий от высоты!
-                        float biomeNoise = Mathf.PerlinNoise((nx * 10f) + offsetX + 50f, (ny * 10f) + offsetY + 50f);
-                        
-                        if (biomeNoise > 0.72f) 
-                            type = TileType.Rock;       // Камни
-                        else if (biomeNoise > 0.55f) 
-                            type = TileType.Forest;     // Лес
-                        else 
-                            type = TileType.Grass;      // Трава
+                        type = TileType.Rock;
+                        elevation = 1.8f + combined * 0.5f;
                     }
 
                     grid[x, y] = new Cell(x, y, type, elevation);
                 }
             }
 
-            // 3. Очистка от изолированных островов (Камни сохраняются!)
-            EnsurePlayableMap(grid, width, height);
+            // ═══════ 2. РЕКА ═══════
+            float riverBaseX = width * 0.5f;
+            float noiseAmplitude = width * 0.08f;
+            float baseRiverWidth = 10f;
 
-            // 4. Поиск стартовой позиции
+            float pondY = height * 0.5f;
+            float pondRadius = height * 0.15f;
+            float pondExtraWidth = 30f;
+
+            float riverCenterNoiseOffset = offsetX + 200f;
+            float riverWidthNoiseOffset = offsetY + 300f;
+
+            for (int y = 0; y < height; y++)
+            {
+                float ny = (float)y / height;
+
+                float bigWave   = Mathf.Sin(y * 0.055f) * (width * 0.16f);
+                float medWave   = Mathf.Sin(y * 0.18f) * (width * 0.07f);
+                float smallWave = Mathf.Sin(y * 0.55f) * (width * 0.02f);
+                float noiseWave = (Mathf.PerlinNoise(0f, (ny * 8f) + riverCenterNoiseOffset) - 0.5f) * 2f * noiseAmplitude;
+
+                float centerX = riverBaseX + bigWave + medWave + smallWave + noiseWave;
+
+                float widthNoise = Mathf.PerlinNoise(0f, (ny * 5f) + riverWidthNoiseOffset) - 0.5f;
+                float riverWidth = baseRiverWidth * (1f + widthNoise * 2f * 0.30f);
+
+                float distToPond = Mathf.Abs(y - pondY);
+                if (distToPond < pondRadius)
+                {
+                    float t = 1f - (distToPond / pondRadius);
+                    riverWidth += pondExtraWidth * Mathf.SmoothStep(0f, 1f, t);
+                }
+
+                int minX = Mathf.Max(0, Mathf.FloorToInt(centerX - riverWidth * 0.5f - 2f));
+                int maxX = Mathf.Min(width - 1, Mathf.CeilToInt(centerX + riverWidth * 0.5f + 2f));
+
+                for (int x = minX; x <= maxX; x++)
+                {
+                    float edgeNoise = (Mathf.PerlinNoise((x * 0.4f) + offsetX, (y * 0.4f) + offsetY) - 0.5f) * 2f;
+                    float distToCenter = Mathf.Abs(x - centerX);
+                    float effectiveHalfWidth = (riverWidth * 0.5f) + edgeNoise * 1.2f;
+
+                    if (distToCenter <= effectiveHalfWidth)
+                    {
+                        var cell = grid[x, y];
+                        cell.Type = TileType.Water;
+                        cell.Elevation = 0.3f;
+                        cell.UpdateMovementCost();
+                    }
+                }
+            }
+
+            // ═══════ 3. ЛЕС — ОДИН МАССИВ В ОДНОМ УГЛУ ═══════
+            int forestCorner = prng.Next(4);
+            float forestCenterX, forestCenterY;
+            switch (forestCorner)
+            {
+                case 0: forestCenterX = width * 0.25f; forestCenterY = height * 0.25f; break;
+                case 1: forestCenterX = width * 0.25f; forestCenterY = height * 0.75f; break;
+                case 2: forestCenterX = width * 0.75f; forestCenterY = height * 0.25f; break;
+                default: forestCenterX = width * 0.75f; forestCenterY = height * 0.75f; break;
+            }
+
+            float forestRadius = Mathf.Sqrt(width * height * 0.40f / Mathf.PI);
+            const float forestThreshold = 0.35f;
+
+            for (int x = 0; x < width; x++)
+            {
+                for (int y = 0; y < height; y++)
+                {
+                    var cell = grid[x, y];
+                    if (cell.Type == TileType.Rock || cell.Type == TileType.Water) continue;
+
+                    float dx = x - forestCenterX;
+                    float dy = y - forestCenterY;
+                    float dist = Mathf.Sqrt(dx * dx + dy * dy);
+
+                    if (dist > forestRadius * 1.6f) continue;
+
+                    float baseStrength = 1f - (dist / forestRadius);
+                    float edgeNoise = (Mathf.PerlinNoise((x * 0.08f) + offsetX + 300f, (y * 0.08f) + offsetY + 300f) - 0.5f) * 0.6f;
+                    float clearingNoise = Mathf.PerlinNoise((x * 0.15f) + offsetX + 400f, (y * 0.15f) + offsetY + 400f);
+                    float clearingPenalty = clearingNoise > 0.6f ? (clearingNoise - 0.6f) * 2f : 0f;
+
+                    float forestStrength = baseStrength + edgeNoise - clearingPenalty;
+
+                    if (forestStrength > forestThreshold)
+                    {
+                        cell.Type = TileType.Forest;
+                        cell.Elevation = 1.3f;
+                        cell.UpdateMovementCost();
+                    }
+                }
+            }
+
+            // ═══════ 4. БОЛОТО — ОДНО, В ЦЕНТРЕ ЛЕСА ═══════
+            //
+            // ДИЗАЙН:
+            //   - МАЛЕНЬКОЕ: ~0.20 от forestRadius (диаметр ~14 на 100×100)
+            //   - НЕРОВНОЕ: расстояние искажается domain-warping'ом — граница
+            //     не круг, а органичная лужа с заливами/полуостровами
+            //   - НЕТ forceSwamp: ядро тоже под шумом, просто с высоким
+            //     порогом, чтобы без дырок. Cleanup потом зачищает остатки.
+            //
+            float swampRadius = forestRadius * 0.20f;        // ← БЫЛО 0.45, стало 0.20 (маленькое)
+            float swampOuterRadius = swampRadius * 1.6f;
+            float swampNoiseOffset = offsetX + 500f;
+            const float swampThreshold = 0.30f;
+
+            int swampCount = 0;
+
+            for (int x = 0; x < width; x++)
+            {
+                for (int y = 0; y < height; y++)
+                {
+                    var cell = grid[x, y];
+                    if (cell.Type == TileType.Water) continue;
+
+                    float dx = x - forestCenterX;
+                    float dy = y - forestCenterY;
+                    float dist = Mathf.Sqrt(dx * dx + dy * dy);
+
+                    // Warp: искажаем расстояние шумом. Это и есть "органичная форма".
+                    // Два слоя: крупный (для формы) + мелкий (для рваности края).
+                    float warpCoarse = (Mathf.PerlinNoise(
+                        (x * 0.08f) + swampNoiseOffset,
+                        (y * 0.08f) + swampNoiseOffset) - 0.5f) * 2f;
+                    float warpFine = (Mathf.PerlinNoise(
+                        (x * 0.22f) + swampNoiseOffset + 50f,
+                        (y * 0.22f) + swampNoiseOffset + 50f) - 0.5f) * 2f;
+
+                    // Смещение расстояния: до ±0.55 * swampRadius. Не круг, а лужа.
+                    float warpAmount = (warpCoarse * 0.65f + warpFine * 0.35f) * swampRadius * 0.55f;
+                    float warpedDist = dist + warpAmount;
+
+                    // Жёсткая отсечка по внешнему радиусу (после warp — он реально шире)
+                    if (warpedDist > swampOuterRadius) continue;
+
+                    // Порог: чем ближе к центру, тем больше шансов стать болотом
+                    float strength = 1f - (warpedDist / swampRadius);
+                    if (strength <= swampThreshold) continue;
+
+                    cell.Type = TileType.Swamp;
+                    cell.Elevation = 0.5f;
+                    cell.UpdateMovementCost();
+                    swampCount++;
+                }
+            }
+
+            // ═══════ 4.5 ЗАЧИСТКА ОСТРОВКОВ ═══════
+            // На рваном крае могли остаться одиночные Grass/Forest/Rock внутри болота.
+            // ≥7 (а не 6) — чтобы болото не расползлось на "здоровые" клетки у края.
+            // 5 проходов — на случай цепочек.
+            for (int pass = 0; pass < 5; pass++)
+            {
+                var toConvert = new List<Vector2Int>();
+                for (int x = 1; x < width - 1; x++)
+                {
+                    for (int y = 1; y < height - 1; y++)
+                    {
+                        var cell = grid[x, y];
+                        if (cell.Type == TileType.Swamp || cell.Type == TileType.Water) continue;
+
+                        int swampNeighbors = 0;
+                        for (int ddx = -1; ddx <= 1; ddx++)
+                            for (int ddy = -1; ddy <= 1; ddy++)
+                            {
+                                if (ddx == 0 && ddy == 0) continue;
+                                if (grid[x + ddx, y + ddy].Type == TileType.Swamp) swampNeighbors++;
+                            }
+
+                        if (swampNeighbors >= 7)
+                            toConvert.Add(new Vector2Int(x, y));
+                    }
+                }
+
+                if (toConvert.Count == 0) break;
+                foreach (var c in toConvert)
+                {
+                    grid[c.x, c.y].Type = TileType.Swamp;
+                    grid[c.x, c.y].Elevation = 0.5f;
+                    grid[c.x, c.y].UpdateMovementCost();
+                    swampCount++;
+                }
+            }
+
+            // ═══════ 5. СТАРТОВАЯ ЗОНА ═══════
             startLocation = FindStartPosition(grid, width, height);
+
+            Debug.Log($"[MapGenerator] Карта {width}×{height}: лес в ({forestCenterX:F0},{forestCenterY:F0}) r={forestRadius:F0}, " +
+                      $"болото {swampCount} клеток, старт: {startLocation}");
 
             return grid;
         }
 
-        /// <summary>
-        /// Суша = всё, что не вода. Используется ДЛЯ ПОИСКА ОСТРОВА.
-        /// Камни — это суша, просто непроходимая для юнитов.
-        /// </summary>
-        private static bool IsLand(Cell c) => c.Type != TileType.Water;
-
-        /// <summary>
-        /// Находит самый большой остров (по суше) и топит всё, что не в нём.
-        /// Камни внутри острова сохраняются. 
-        /// </summary>
-        private static void EnsurePlayableMap(Cell[,] grid, int width, int height)
-        {
-            bool[,] visited = new bool[width, height];
-            List<Vector2Int> largestIsland = new List<Vector2Int>();
-
-            for (int x = 0; x < width; x++)
-            {
-                for (int y = 0; y < height; y++)
-                {
-                    // ФИКС: Ищем по IsLand (не вода), а не по IsWalkable (не вода + не камень)
-                    if (!visited[x, y] && IsLand(grid[x, y]))
-                    {
-                        List<Vector2Int> island = FloodFill(grid, x, y, visited, width, height);
-                        if (island.Count > largestIsland.Count)
-                            largestIsland = island;
-                    }
-                }
-            }
-
-            if (largestIsland.Count == 0) return;
-
-            bool[,] isPartOfMainIsland = new bool[width, height];
-            foreach (var pos in largestIsland)
-                isPartOfMainIsland[pos.x, pos.y] = true;
-
-            // Топим всё, что не в главном острове
-            for (int x = 0; x < width; x++)
-            {
-                for (int y = 0; y < height; y++)
-                {
-                    if (!isPartOfMainIsland[x, y])
-                    {
-                        grid[x, y].Type = TileType.Water;
-                        grid[x, y].Elevation = 0f;
-                    }
-                }
-            }
-        }
-
-        private static List<Vector2Int> FloodFill(Cell[,] grid, int startX, int startY, bool[,] visited, int width, int height)
-        {
-            List<Vector2Int> island = new List<Vector2Int>();
-            Queue<Vector2Int> queue = new Queue<Vector2Int>();
-            queue.Enqueue(new Vector2Int(startX, startY));
-            visited[startX, startY] = true;
-
-            int[] dx = { 0, 0, 1, -1 };
-            int[] dy = { 1, -1, 0, 0 };
-
-            while (queue.Count > 0)
-            {
-                Vector2Int current = queue.Dequeue();
-                island.Add(current);
-
-                for (int i = 0; i < 4; i++)
-                {
-                    int nx = current.x + dx[i];
-                    int ny = current.y + dy[i];
-                    if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
-                    if (visited[nx, ny]) continue;
-
-                    // ФИКС: Идём по суше (IsLand), камни становятся частью острова
-                    if (IsLand(grid[nx, ny]))
-                    {
-                        visited[nx, ny] = true;
-                        queue.Enqueue(new Vector2Int(nx, ny));
-                    }
-                }
-            }
-            return island;
-        }
-
         private static Vector2Int FindStartPosition(Cell[,] grid, int width, int height)
         {
-            int cx = width / 2;
-            int cy = height / 2;
+            Vector2Int best = new Vector2Int(-1, -1);
+            int bestScore = -1;
+            const int searchRadius = 8;
 
-            // 1. Ищем траву в центре
-            for (int x = width / 4; x < width * 3 / 4; x++)
+            for (int x = 5; x < width - 5; x++)
             {
-                for (int y = height / 4; y < height * 3 / 4; y++)
+                for (int y = 5; y < height - 5; y++)
                 {
-                    if (grid[x, y].Type == TileType.Grass) return new Vector2Int(x, y);
-                }
-            }
+                    var cell = grid[x, y];
+                    if (cell.Type != TileType.Grass) continue;
 
-            // 2. ФИКС 2.3: расширяющийся поиск по IsBuildable (не только трава)
-            for (int radius = 1; radius < Mathf.Max(width, height); radius++)
-            {
-                for (int dx = -radius; dx <= radius; dx++)
-                {
-                    for (int dy = -radius; dy <= radius; dy++)
+                    int forest = 0, water = 0, walkable = 0;
+                    for (int dx = -searchRadius; dx <= searchRadius; dx++)
                     {
-                        if (Mathf.Abs(dx) != radius && Mathf.Abs(dy) != radius) continue;
-                        int x = cx + dx;
-                        int y = cy + dy;
-                        if (x < 0 || x >= width || y < 0 || y >= height) continue;
-                        if (grid[x, y].IsBuildable()) return new Vector2Int(x, y);
+                        for (int dy = -searchRadius; dy <= searchRadius; dy++)
+                        {
+                            if (dx * dx + dy * dy > searchRadius * searchRadius) continue;
+                            int nx = x + dx, ny = y + dy;
+                            if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
+
+                            var c = grid[nx, ny];
+                            if (c.Type == TileType.Forest) forest++;
+                            else if (c.Type == TileType.Water) water++;
+                            if (c.IsWalkable()) walkable++;
+                        }
+                    }
+
+                    if (forest >= 5 && water >= 3 && walkable >= 50)
+                    {
+                        int score = forest + walkable;
+                        if (score > bestScore)
+                        {
+                            bestScore = score;
+                            best = new Vector2Int(x, y);
+                        }
                     }
                 }
             }
 
-            // 3. На карте вообще нет строибельных клеток — это ошибка генерации
-            Debug.LogError("[MapGenerator] На карте нет строибельных клеток! Старт — центр, но игра будет сломана.");
-            return new Vector2Int(cx, cy);
+            if (best.x < 0)
+            {
+                for (int x = 5; x < width - 5; x++)
+                {
+                    for (int y = 5; y < height - 5; y++)
+                    {
+                        if (grid[x, y].Type == TileType.Grass)
+                        {
+                            Debug.LogWarning($"[MapGenerator] Идеальная стартовая зона не найдена, fallback: ({x},{y})");
+                            return new Vector2Int(x, y);
+                        }
+                    }
+                }
+            }
+
+            if (best.x < 0)
+            {
+                int cx = width / 2;
+                int cy = height / 2;
+                while (cx > 0 && grid[cx, cy].Type == TileType.Water) cx--;
+                grid[cx, cy].Type = TileType.Grass;
+                grid[cx, cy].UpdateMovementCost();
+                Debug.LogError($"[MapGenerator] Нет травы! Принудительный старт ({cx},{cy})");
+                return new Vector2Int(cx, cy);
+            }
+
+            return best;
         }
     }
 }

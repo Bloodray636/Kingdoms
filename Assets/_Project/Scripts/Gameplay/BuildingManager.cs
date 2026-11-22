@@ -16,49 +16,53 @@ namespace KingdomsClone.Gameplay
 
         private void Awake()
         {
-            if (Instance != null && Instance != this) { Destroy(gameObject); return; }
+            if (Instance != null && Instance != this) { 
+                Destroy(gameObject); 
+                return; 
+            }
+
             Instance = this;
             DontDestroyOnLoad(gameObject);
         }
 
         private void OnDestroy()
         {
-            if (Instance == this) Instance = null;
+            if (Instance == this) {
+                Instance = null;
+            }
         }
 
         public void Register(BuildingBase b)
         {
-            if (b != null && !_buildings.Contains(b))
+            if (b != null && !_buildings.Contains(b)) {
                 _buildings.Add(b);
+            }
         }
 
         public void Unregister(BuildingBase b)
         {
-            if (b != null) _buildings.Remove(b);
+            if (b != null) {
+                _buildings.Remove(b);
+            }
         }
 
-        /// <summary>
-        /// Уничтожает ВСЕ здания БЕЗ возврата ресурсов и БЕЗ событий.
-        /// Используется при перегенерации карты (иначе можно нафармить ресурсов).
-        /// </summary>
         public void ClearAllSilent()
         {
             var copy = new List<BuildingBase>(_buildings);
-            foreach (var b in copy)
-            {
+
+            foreach (var b in copy) {
                 if (b == null) continue;
 
-                if (GridSystem.Instance != null)
-                {
-                    foreach (var cell in b.GetOccupiedCells())
+                if (GridSystem.Instance != null) {
+                    foreach (var cell in b.GetOccupiedCells()) {
                         GridSystem.Instance.UnregisterBuilding(cell.x, cell.y, b.gameObject);
+                    }
                 }
 
                 Destroy(b.gameObject);
             }
-            _buildings.Clear();
 
-            // ФИКС: уведомляем Pathfinding, что карта изменилась
+            _buildings.Clear();
             EventBus.Publish(new PathCacheClearEvent());
 
             Debug.Log($"[BuildingManager] Уничтожено {copy.Count} зданий.");

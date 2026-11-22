@@ -3,10 +3,6 @@ using KingdomsClone.Core.Pooling;
 
 namespace KingdomsClone.Gameplay
 {
-    /// <summary>
-    /// Простой эффект: сфера растёт и исчезает за duration.
-    /// Заменяется настоящим VFX в Epic 14.
-    /// </summary>
     public class PoofEffect : MonoBehaviour, IPoolable
     {
         [SerializeField] private float duration = 0.6f;
@@ -26,12 +22,13 @@ namespace KingdomsClone.Gameplay
         private void Update()
         {
             _t += Time.deltaTime;
-            if (_t >= duration)
-            {
-                if (PoolManager.Instance != null)
+            if (_t >= duration) {
+                if (PoolManager.Instance != null) {
                     PoolManager.Instance.Despawn(gameObject);
-                else
+                } else {
                     Destroy(gameObject);
+                }
+        
                 return;
             }
 
@@ -52,7 +49,10 @@ namespace KingdomsClone.Gameplay
             Destroy(body.GetComponent<Collider>());
 
             var mr = body.GetComponent<MeshRenderer>();
-            if (mr != null) mr.material.color = new Color(1f, 1f, 1f, 0.7f);
+
+            if (mr != null) {
+                mr.material.color = new Color(1f, 1f, 1f, 0.7f);
+            }
 
             root.AddComponent<PoofEffect>();
             return root;

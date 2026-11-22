@@ -34,11 +34,11 @@ namespace KingdomsClone.Gameplay
         /// <summary>
         /// Найти первый дом с местом. null, если мест нет.
         /// </summary>
-        public BuildingBase GetFreeHouse()
+        public BuildingBase GetFreeHouse(BuildingBase exclude = null)
         {
             foreach (var h in _houses)
             {
-                if (h == null) continue;
+                if (h == null || h == exclude) continue;
                 if (h.HasFreeSpace) return h;
             }
             return null;
@@ -48,7 +48,10 @@ namespace KingdomsClone.Gameplay
         {
             int total = 0;
             foreach (var h in _houses)
-                if (h != null && h.Data != null) total += h.Data.MaxResidents;
+            {
+                if (h != null && h.Data != null && h.State == BuildingState.Active)
+                    total += h.Data.MaxResidents;
+            }
             return total;
         }
 
@@ -56,7 +59,10 @@ namespace KingdomsClone.Gameplay
         {
             int total = 0;
             foreach (var h in _houses)
-                if (h != null) total += h.Residents;
+            {
+                if (h != null && h.State == BuildingState.Active)
+                    total += h.Residents;
+            }
             return total;
         }
 

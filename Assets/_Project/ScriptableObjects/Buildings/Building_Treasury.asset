@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 06d20f42032cf81468c22c97d6ee9456, type: 3}
   m_Name: Building_Treasury
   m_EditorClassIdentifier: Assembly-CSharp::KingdomsClone.Data.BuildingDataSO
-  id: 
+  id: Building_Treasury
   displayName: "\u0421\u043E\u043A\u0440\u043E\u0432\u0438\u0449\u043D\u0438\u0446\u0430"
   description: "\u0425\u0440\u0430\u043D\u0438\u0442 \u043D\u0430\u043B\u043E\u0433\u0438.
     \u0422\u0440\u0435\u0431\u0443\u0435\u0442 \u043A\u0430\u0437\u043D\u0430\u0447\u0435\u044F

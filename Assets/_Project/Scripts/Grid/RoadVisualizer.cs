@@ -6,27 +6,41 @@ using KingdomsClone.Grid.Events;
 
 namespace KingdomsClone.Grid
 {
+    /// <summary>
+    /// Визуализация дорог через Graphics.DrawMesh.
+    /// Слушает RoadPlacedEvent (добавление) и RoadRemovedEvent (удаление).
+    /// При удалении — полная пересборка списка позиций из сетки.
+    /// </summary>
     public class RoadVisualizer : MonoBehaviour
     {
         [SerializeField] private Material roadMaterial;
         [SerializeField] private float roadYOffset = 0.02f;
 
         private Mesh _quadMesh;
-        private List<Vector3> _roadPositions = new();
+        private readonly List<Vector3> _roadPositions = new();
 
         private void Awake() => _quadMesh = GenerateQuadMesh();
+
+        private void OnDestroy()
+        {
+            if (_quadMesh != null) Destroy(_quadMesh);
+        }
 
         private void OnEnable()
         {
             EventBus.Subscribe<RoadPlacedEvent>(OnRoadPlaced);
+            EventBus.Subscribe<RoadRemovedEvent>(OnRoadRemoved);
             EventBus.Subscribe<GridGeneratedEvent>(OnGridGenerated);
         }
 
         private void OnDisable()
         {
             EventBus.Unsubscribe<RoadPlacedEvent>(OnRoadPlaced);
+            EventBus.Unsubscribe<RoadRemovedEvent>(OnRoadRemoved);
             EventBus.Unsubscribe<GridGeneratedEvent>(OnGridGenerated);
         }
+
+        // ============ СОБЫТИЯ ============
 
         private void OnRoadPlaced(RoadPlacedEvent e)
         {
@@ -34,23 +48,65 @@ namespace KingdomsClone.Grid
             if (grid == null) return;
 
             Vector3 pos = grid.CellToWorld(e.X, e.Y);
-            // ФИКС: единая высота поверхности
             pos.y = grid.GetSurfaceY(e.X, e.Y) + roadYOffset;
             _roadPositions.Add(pos);
         }
 
+        private void OnRoadRemoved(RoadRemovedEvent e)
+        {
+            // Удаление одной дороги → быстрый путь: убрать одну позицию по индексу.
+            // Но матчить по координатам через _roadPositions нельзя надёжно
+            // (округления float), поэтому просто пересобираем весь список из сетки.
+            RebuildRoadPositions();
+        }
+
         private void OnGridGenerated(GridGeneratedEvent e) => _roadPositions.Clear();
+
+        // ============ ПЕРЕСБОРКА ============
+
+        /// <summary>
+        /// Полная пересборка списка позиций из текущего состояния сетки.
+        /// Используется при удалении дороги — гарантирует консистентность
+        /// визуала с данными Cell.Type == TileType.Road.
+        /// </summary>
+        private void RebuildRoadPositions()
+        {
+            _roadPositions.Clear();
+
+            var grid = GridSystem.Instance;
+            if (grid == null || grid.Grid == null) return;
+
+            for (int x = 0; x < grid.Width; x++)
+            {
+                for (int y = 0; y < grid.Height; y++)
+                {
+                    var c = grid.GetCell(x, y);
+                    if (c == null || c.Type != TileType.Road) continue;
+
+                    Vector3 pos = grid.CellToWorld(x, y);
+                    pos.y = grid.GetSurfaceY(x, y) + roadYOffset;
+                    _roadPositions.Add(pos);
+                }
+            }
+        }
+
+        // ============ РЕНДЕР ============
 
         private void LateUpdate()
         {
             if (_roadPositions.Count == 0 || roadMaterial == null) return;
 
+            Matrix4x4 rot = Matrix4x4.Rotate(Quaternion.Euler(-90f, 0f, 0f));
+            Vector3 scale = Vector3.one;
+
             for (int i = 0; i < _roadPositions.Count; i++)
             {
-                Matrix4x4 mat = Matrix4x4.TRS(_roadPositions[i], Quaternion.Euler(-90f, 0f, 0f), Vector3.one);
+                Matrix4x4 mat = Matrix4x4.TRS(_roadPositions[i], Quaternion.Euler(-90f, 0f, 0f), scale);
                 Graphics.DrawMesh(_quadMesh, mat, roadMaterial, 0);
             }
         }
+
+        // ============ MESH ============
 
         private Mesh GenerateQuadMesh()
         {

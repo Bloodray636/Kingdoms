@@ -8,12 +8,14 @@ namespace KingdomsClone.Gameplay
         {
             "Славик", "Слава",
         };
+
         private static readonly string[] FemaleNames =
         {
             "Анна", "Мария", "Ольга", "Елена", "Наталья", "Татьяна", "Ирина", "Екатерина",
             "Анастасия", "Дарья", "Софья", "Полина", "Вера", "Надежда", "Любовь", "Ксения",
             "Алина", "Кристина", "Юлия", "Светлана", "Маргарита", "Валентина", "Алёна", "Милана",
         };
+
         private static readonly string[] LastNames =
         {
             "Иванов", "Петров", "Сидоров", "Смирнов", "Кузнецов", "Попов", "Васильев", "Соколов",
@@ -24,11 +26,13 @@ namespace KingdomsClone.Gameplay
         public static string Generate(out bool isMale)
         {
             isMale = Random.value < 0.5f;
-            string first = isMale
-                ? MaleNames[Random.Range(0, MaleNames.Length)]
-                : FemaleNames[Random.Range(0, FemaleNames.Length)];
+            string first = isMale ? MaleNames[Random.Range(0, MaleNames.Length)] : FemaleNames[Random.Range(0, FemaleNames.Length)];
             string last = LastNames[Random.Range(0, LastNames.Length)];
-            if (!isMale) last += "а"; // Иванова, Петрова
+
+            if (!isMale) {
+                last += "а";
+            }
+            
             return $"{first} {last}";
         }
 

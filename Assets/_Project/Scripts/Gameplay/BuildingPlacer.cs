@@ -5,6 +5,8 @@ using KingdomsClone.Grid;
 using KingdomsClone.Core;
 using KingdomsClone.Core.Events;
 using System.Collections.Generic;
+using UnityEngine.EventSystems;
+using KingdomsClone.Core.DebugTools;
 
 namespace KingdomsClone.Gameplay
 {
@@ -44,11 +46,38 @@ namespace KingdomsClone.Gameplay
                 UpdateGhostVisualScale();
             }
 
-            if (Mouse.current.leftButton.wasPressedThisFrame)
+            if (Mouse.current.leftButton.wasPressedThisFrame && !IsPointerOverUI())
                 TryPlaceBuilding();
 
             if (Mouse.current.rightButton.wasPressedThisFrame || Keyboard.current.escapeKey.wasPressedThisFrame)
                 CancelPlacement();
+        }
+
+        private bool IsPointerOverUI()
+        {
+            if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
+                return true;
+
+            // DebugMenu — IMGUI, EventSystem его не видит
+            if (DebugMenu.IsOpen)
+                return true;
+
+            // Собственная инфо-панель размещения (см. OnGUI)
+            if (_isPlacing)
+            {
+                const float panelW = 340f, panelH = 240f, margin = 20f;
+                Rect panelRect = new Rect(
+                    Screen.width  - panelW - margin,
+                    Screen.height - panelH - margin,
+                    panelW, panelH);
+
+                Vector2 mp = Mouse.current.position.ReadValue();
+                // Input System → IMGUI: Y перевёрнут
+                Vector2 guiPos = new Vector2(mp.x, Screen.height - mp.y);
+                if (panelRect.Contains(guiPos)) return true;
+            }
+
+            return false;
         }
 
         private void OnDestroy()
@@ -70,6 +99,9 @@ namespace KingdomsClone.Gameplay
 
             var demolisher = FindObjectOfType<BuildingDemolisher>();
             if (demolisher != null) demolisher.Cancel();
+
+            var roadPlacer = FindObjectOfType<RoadPlacer>();
+            if (roadPlacer != null) roadPlacer.Cancel(); 
 
             CancelPlacement();
             _selectedBuilding = buildingData;
@@ -200,6 +232,20 @@ namespace KingdomsClone.Gameplay
                 if (!c.IsBuildable()) { reason = $"Нельзя на {c.Type}"; return; }
                 if (!c.IsFree()) { reason = "Место занято"; return; }
             }
+
+            if (VillagerManager.Instance != null)
+            {
+                foreach (var v in VillagerManager.Instance.AllVillagers)
+                {
+                    if (v == null) continue;
+                    Vector2Int vc = grid.WorldToCell(v.transform.position);
+                    foreach (var cell in FootprintUtil.GetOccupiedCells(_currentCell, _selectedBuilding.Size, _currentRotation))
+                    {
+                        if (vc == cell) { reason = "Здесь стоит житель"; return; }
+                    }
+                }
+            }
+
             ok = true;
         }
 

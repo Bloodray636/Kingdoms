@@ -8,7 +8,7 @@ namespace KingdomsClone.Gameplay
         public JobPriority Priority;
         public BuildingBase Workplace;
         public Vector2Int WorkplaceCell;
-        public Vector2Int WorkPosition;  // НОВОЕ: куда именно идти (уникально для каждого job)
+        public Vector2Int WorkPosition;
         public Villager AssignedVillager;
 
         public bool IsOccupied => AssignedVillager != null;

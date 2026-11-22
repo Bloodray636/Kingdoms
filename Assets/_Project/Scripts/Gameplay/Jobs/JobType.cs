@@ -8,9 +8,9 @@ namespace KingdomsClone.Gameplay
         StoneMiner,
         Fisherman,
         Treasurer,
-        Miner,        // ← Рудник
-        Smelter,      // ← Плавильня
-        Blacksmith,   // ← Кузница
+        Miner,
+        Smelter,
+        Blacksmith,
         Builder,
         Guard,
     }

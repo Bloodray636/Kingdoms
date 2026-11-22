@@ -7,6 +7,7 @@ namespace KingdomsClone.Grid
         Rock,     // Камень (скалы)
         Water,    // Вода (нельзя строить)
         Fertile,   // Плодородная земля (ускоряет фермы)
-        Road
+        Road,
+        Swamp
     }
 }

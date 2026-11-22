@@ -3,10 +3,6 @@ using KingdomsClone.Core.Pooling;
 
 namespace KingdomsClone.Gameplay
 {
-    /// <summary>
-    /// Простой снаряд для демонстрации пула. В Эпике 8 заменим настоящим.
-    /// Летит по параболе, живёт N секунд, возвращается в пул.
-    /// </summary>
     public class TestProjectile : MonoBehaviour, IPoolable
     {
         private Vector3 _velocity;
@@ -30,12 +26,13 @@ namespace KingdomsClone.Gameplay
         private void Update()
         {
             _lifetime -= Time.deltaTime;
-            if (_lifetime <= 0)
-            {
-                if (PoolManager.Instance != null)
+            if (_lifetime <= 0) {
+                if (PoolManager.Instance != null) {
                     PoolManager.Instance.Despawn(gameObject);
-                else
+                } else {
                     Destroy(gameObject);
+                }
+        
                 return;
             }
 
@@ -56,7 +53,10 @@ namespace KingdomsClone.Gameplay
             Destroy(body.GetComponent<Collider>());
 
             var mr = body.GetComponent<MeshRenderer>();
-            if (mr != null) mr.material.color = new Color(0.9f, 0.2f, 0.2f);
+
+            if (mr != null) {
+                mr.material.color = new Color(0.9f, 0.2f, 0.2f);
+            }
 
             root.AddComponent<TestProjectile>();
             return root;

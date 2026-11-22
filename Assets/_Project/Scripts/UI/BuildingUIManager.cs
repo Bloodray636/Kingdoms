@@ -453,8 +453,11 @@ namespace KingdomsClone.UI
             Debug.Log($"[BuildingUIManager] КЛИК: {building?.DisplayName}");
             if (building == null) return;
 
-            // Если активен режим сноса — выключаем, чтобы не мешал
+            // Отменяем все другие режимы
             if (demolisher != null && demolisher.IsActive) demolisher.Cancel();
+
+            var roadPlacer = FindObjectOfType<KingdomsClone.Gameplay.RoadPlacer>();
+            if (roadPlacer != null && roadPlacer.IsActive) roadPlacer.Cancel();
 
             SetPanelOpen(false);
             HideTooltip();

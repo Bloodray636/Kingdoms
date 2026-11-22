@@ -22,13 +22,13 @@ namespace KingdomsClone.Data
         public string Description => description;
         public Sprite Icon => icon;
 
-#if UNITY_EDITOR
-        protected virtual void OnValidate()
-        {
-            // Автозаполнение ID из имени ассета — защита от опечаток.
-            if (string.IsNullOrEmpty(id))
-                id = name;
-        }
-#endif
+        #if UNITY_EDITOR
+            protected virtual void OnValidate()
+            {
+                if (string.IsNullOrEmpty(id)) {
+                    id = name;
+                }
+            }
+        #endif
     }
 }

@@ -15,11 +15,11 @@ namespace KingdomsClone.Core
 
         private void Awake()
         {
-            if (Instance != null && Instance != this)
-            {
+            if (Instance != null && Instance != this) {
                 Destroy(gameObject);
                 return;
             }
+
             Instance = this;
             DontDestroyOnLoad(gameObject);
         }
@@ -29,18 +29,15 @@ namespace KingdomsClone.Core
             Debug.Log("[GameManager] Boot: инициализация");
 
             var data = GameDataSO.Instance;
-            if (data == null)
-            {
+
+            if (data == null) {
                 Debug.LogError("[GameManager] GameDataSO не найден — игра не запустится");
                 yield break;
             }
 
-            Debug.Log($"[GameManager] Boot OK: {data.Resources.Count} ресурсов, " +
-                      $"{data.Buildings.Count} зданий, {data.Units.Count} юнитов");
+            Debug.Log($"[GameManager] Boot OK: {data.Resources.Count} ресурсов, " + $"{data.Buildings.Count} зданий, {data.Units.Count} юнитов");
 
-            yield return null; // один кадр в Boot — чтобы UI успел подписаться
-
-            // TODO (когда появится меню): TransitionTo(GameState.Menu)
+            yield return null;
             TransitionTo(GameState.Playing);
         }
 
@@ -49,21 +46,28 @@ namespace KingdomsClone.Core
             if (Instance == this) Instance = null;
         }
 
-        // ---------- Публичный API ----------
+        // API
 
-        public void StartGame()   => TransitionTo(GameState.Playing);
-        public void PauseGame()   { if (CurrentState == GameState.Playing) TransitionTo(GameState.Paused); }
-        public void ResumeGame()  { if (CurrentState == GameState.Paused)  TransitionTo(GameState.Playing); }
-        public void QuitToMenu()  => TransitionTo(GameState.Menu);
+        public void StartGame() => TransitionTo(GameState.Playing);
+        public void PauseGame() { 
+            if (CurrentState == GameState.Playing) {
+                TransitionTo(GameState.Paused);
+            } 
+        }
 
-        // ---------- State machine ----------
+        public void ResumeGame() { 
+            if (CurrentState == GameState.Paused) {
+                TransitionTo(GameState.Playing);
+            } 
+        }
+
+        public void QuitToMenu() => TransitionTo(GameState.Menu);
 
         public void TransitionTo(GameState next)
         {
             if (next == CurrentState) return;
 
-            if (!IsValidTransition(CurrentState, next))
-            {
+            if (!IsValidTransition(CurrentState, next)) {
                 Debug.LogWarning($"[GameManager] Недопустимый переход {CurrentState} → {next}");
                 return;
             }
@@ -73,8 +77,7 @@ namespace KingdomsClone.Core
 
             Debug.Log($"[GameManager] {PreviousState} → {next}");
 
-            EventBus.Publish(new GameStateChangedEvent
-            {
+            EventBus.Publish(new GameStateChangedEvent {
                 PreviousState = PreviousState,
                 NewState = next
             });
@@ -82,10 +85,10 @@ namespace KingdomsClone.Core
 
         private static bool IsValidTransition(GameState from, GameState to) => from switch
         {
-            GameState.Boot    => to == GameState.Menu || to == GameState.Playing,
-            GameState.Menu    => to == GameState.Playing,
+            GameState.Boot => to == GameState.Menu || to == GameState.Playing,
+            GameState.Menu => to == GameState.Playing,
             GameState.Playing => to == GameState.Paused || to == GameState.Menu,
-            GameState.Paused  => to == GameState.Playing || to == GameState.Menu,
+            GameState.Paused => to == GameState.Playing || to == GameState.Menu,
             _ => false
         };
     }

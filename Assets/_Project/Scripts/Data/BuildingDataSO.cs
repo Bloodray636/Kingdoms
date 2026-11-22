@@ -7,7 +7,9 @@ namespace KingdomsClone.Data
     [CreateAssetMenu(
         menuName = "KingdomsClone/Building",
         fileName = "Building_New",
-        order = 2)]
+        order = 2)
+    ]
+
     public class BuildingDataSO : DataSO
     {
         [Header("Visual")]
@@ -48,7 +50,7 @@ namespace KingdomsClone.Data
         [SerializeField, Range(-10, 10)] private int happinessBonus = 0;
         [SerializeField, Min(0f)] private float happinessRadius = 0f;
 
-        // ============ ГЕТТЕРЫ ============
+        // ГЕТТЕРЫ
 
         public GameObject Prefab => prefab;
         public Vector2Int Size => size;
@@ -66,46 +68,60 @@ namespace KingdomsClone.Data
         public int HappinessBonus => happinessBonus;
         public float HappinessRadius => happinessRadius;
 
-        // ============ ПРОИЗВОДНЫЕ ФЛАГИ ============
+        // ПРОИЗВОДНЫЕ ФЛАГИ
 
-        public bool IsProducer =>
-            (recipe != null && recipe.HasOutputs) ||
-            (production != null && production.HasOutputs);
-
+        public bool IsProducer => (recipe != null && recipe.HasOutputs) || (production != null && production.HasOutputs);
         public bool IsStorage => storageCapacity > 0;
         public bool IsHousing => category == BuildingCategory.Housing;
         public bool IsDefense => category == BuildingCategory.Defense;
 
-        // ============ ВАЛИДАЦИЯ В РЕДАКТОРЕ ============
+        // ВАЛИДАЦИЯ
 
-    #if UNITY_EDITOR
-        private void OnValidate()
-        {
-            if (size.x < 1) size = new Vector2Int(1, size.y);
-            if (size.y < 1) size = new Vector2Int(size.x, 1);
-            if (maxHealth < 1) maxHealth = 1;
-            if (workerSlots < 0) workerSlots = 0;
-            if (storageCapacity < 0) storageCapacity = 0;
-            if (buildTimeSeconds < 0f) buildTimeSeconds = 0f;
-            if (maxResidents < 0) maxResidents = 0;
-
-            if (category == BuildingCategory.Housing && maxResidents < 1)
-                maxResidents = 1;
-
-            // ФИКС: удаляем только полностью null элементы.
-            // НЕ трогаем элементы с Resource == null — пользователь их ещё заполняет.
-            if (buildCost != null)
+        #if UNITY_EDITOR
+            private void OnValidate()
             {
-                for (int i = buildCost.Count - 1; i >= 0; i--)
-                {
-                    if (buildCost[i] == null)
-                    {
-                        Debug.LogWarning($"[{name}] BuildCost[{i}]: null запись. Удалена.");
-                        buildCost.RemoveAt(i);
+                if (size.x < 1) {
+                    size = new Vector2Int(1, size.y);
+                }
+
+                if (size.y < 1) {
+                    size = new Vector2Int(size.x, 1);
+                }
+
+                if (maxHealth < 1) {
+                    maxHealth = 1;
+                }
+
+                if (workerSlots < 0) {
+                    workerSlots = 0;
+                }
+
+                if (storageCapacity < 0) {
+                    storageCapacity = 0;
+                }
+
+                if (buildTimeSeconds < 0f) {
+                    buildTimeSeconds = 0f;
+                }
+
+                if (maxResidents < 0) {
+                    maxResidents = 0;
+                }
+
+
+                if (category == BuildingCategory.Housing && maxResidents < 1) {
+                    maxResidents = 1;
+                }
+
+                if (buildCost != null) {
+                    for (int i = buildCost.Count - 1; i >= 0; i--) {
+                        if (buildCost[i] == null) {
+                            Debug.LogWarning($"[{name}] BuildCost[{i}]: null запись. Удалена.");
+                            buildCost.RemoveAt(i);
+                        }
                     }
                 }
             }
-        }
-    #endif
+        #endif
     }
 }

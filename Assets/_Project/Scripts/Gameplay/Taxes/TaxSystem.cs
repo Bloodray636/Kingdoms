@@ -20,11 +20,14 @@ namespace KingdomsClone.Gameplay
         public TaxLevel CurrentLevel => currentLevel;
 
         private BuildingBase _cachedTreasury;
-        private float _lastEfficiencyCheck;
 
         private void Awake()
         {
-            if (Instance != null && Instance != this) { Destroy(gameObject); return; }
+            if (Instance != null && Instance != this) { 
+                Destroy(gameObject); 
+                return; 
+            }
+
             Instance = this;
             DontDestroyOnLoad(gameObject);
             ApplyHappinessModifier();
@@ -32,15 +35,27 @@ namespace KingdomsClone.Gameplay
 
         private void OnEnable() => EventBus.Subscribe<DayChangedEvent>(OnDayChanged);
         private void OnDisable() => EventBus.Unsubscribe<DayChangedEvent>(OnDayChanged);
-        private void OnDestroy() { if (Instance == this) Instance = null; }
+
+        private void OnDestroy() { 
+            if (Instance == this) {
+                Instance = null;
+            }  
+        }
 
         public void SetTaxLevel(TaxLevel newLevel)
         {
             if (currentLevel == newLevel) return;
+
             var old = currentLevel;
             currentLevel = newLevel;
+
             ApplyHappinessModifier();
-            EventBus.Publish(new TaxChangedEvent { OldLevel = old, NewLevel = newLevel });
+
+            EventBus.Publish(new TaxChangedEvent { 
+                OldLevel = old, 
+                NewLevel = newLevel 
+            });
+
             Debug.Log($"[Tax] Уровень: {old} → {newLevel}");
         }
 
@@ -68,75 +83,92 @@ namespace KingdomsClone.Gameplay
             _ => 0
         };
 
-        // ═══════ СОКРОВИЩНИЦА ═══════
+        // СОКРОВИЩНИЦА
 
-        /// <summary>
-        /// Найти активную сокровищницу (любое здание с JobType=Treasurer).
-        /// Кешируется раз в 2 секунды.
-        /// </summary>
         public BuildingBase FindTreasury()
         {
-            if (_cachedTreasury != null &&
-                _cachedTreasury.State == BuildingState.Active &&
-                _cachedTreasury.Data != null &&
-                _cachedTreasury.Data.JobType == JobType.Treasurer)
-            {
+            if (_cachedTreasury != null && _cachedTreasury.State == BuildingState.Active && _cachedTreasury.Data != null && _cachedTreasury.Data.JobType == JobType.Treasurer && _cachedTreasury.Data.WorkerSlots > 0) {
                 return _cachedTreasury;
             }
 
             _cachedTreasury = null;
+
             var bm = BuildingManager.Instance;
+
             if (bm == null) return null;
 
-            foreach (var b in bm.AllBuildings)
-            {
-                if (b == null || b.Data == null) continue;
-                if (b.Data.JobType != JobType.Treasurer) continue;
-                if (b.State != BuildingState.Active) continue;
+            foreach (var b in bm.AllBuildings) {
+                if (b == null || b.Data == null) {
+                    continue;
+                }
+
+                if (b.Data.JobType != JobType.Treasurer) {
+                    continue;
+                }
+
+                if (b.Data.WorkerSlots <= 0) {
+                    continue;
+                }
+
+                if (b.State != BuildingState.Active) {
+                    continue;
+                }
+
                 _cachedTreasury = b;
                 return b;
             }
+
             return null;
         }
 
-        /// <summary>
-        /// Есть ли в сокровищнице назначенный казначей.
-        /// </summary>
         public bool HasTreasurer(BuildingBase treasury)
         {
-            if (treasury == null) return false;
-            var jobs = treasury.GetJobs();
-            if (jobs == null) return false;
+            if (treasury == null) {
+                return false;
+            }
 
-            foreach (var j in jobs)
-                if (j != null && j.AssignedVillager != null) return true;
+            var jobs = treasury.GetJobs();
+
+            if (jobs == null) {
+                return false;
+            }
+
+            foreach (var j in jobs) {
+                if (j != null && j.AssignedVillager != null) {
+                    return true;
+                }
+            }
 
             return false;
         }
 
-        /// <summary>
-        /// Эффективность сбора налогов:
-        /// - 0.0 — сокровищницы нет (налоги не собираются)
-        /// - 0.5 (по умолчанию) — сокровищница без казначея
-        /// - 1.0 — есть казначей
-        /// </summary>
         public float GetTaxEfficiency()
         {
             var treasury = FindTreasury();
-            if (treasury == null) return 0f;
+
+            if (treasury == null) {
+                return 0f;
+            }
+
             return HasTreasurer(treasury) ? 1f : efficiencyWithoutTreasurer;
         }
 
         public string GetEfficiencyDescription()
         {
             var treasury = FindTreasury();
-            if (treasury == null) return "❌ нет сокровищницы (0%)";
-            if (HasTreasurer(treasury))
-                return $"✅ есть казначей (100%) в {treasury.GridPosition}";
-            return $"⚠ без казначея ({efficiencyWithoutTreasurer:P0}) в {treasury.GridPosition}";
+
+            if (treasury == null) {
+                return "нет сокровищницы (0%)";
+            }
+
+            if (HasTreasurer(treasury)) {
+                return $"есть казначей (100%) в {treasury.GridPosition}";
+            }
+
+            return $"без казначея ({efficiencyWithoutTreasurer:P0}) в {treasury.GridPosition}";
         }
 
-        // ═══════ СБОР НАЛОГОВ ═══════
+        // СБОР НАЛОГОВ
 
         private void OnDayChanged(DayChangedEvent e)
         {
@@ -146,21 +178,22 @@ namespace KingdomsClone.Gameplay
             var rm = ResourceManager.Instance;
             var gold = GameDataSO.Instance?.GetResource("Resource_Gold");
 
-            if (vm == null || rm == null || gold == null)
-            {
+            if (vm == null || rm == null || gold == null) {
                 Debug.LogWarning("[Tax] Невозможно собрать налоги: нет менеджеров или Resource_Gold.");
                 return;
             }
 
+            int population = vm.AllVillagers.Count;
+
+            if (population == 0) return;
+
             float efficiency = GetTaxEfficiency();
+            
             if (efficiency <= 0f)
             {
-                Debug.LogWarning("[Tax] Сокровищница отсутствует — налоги не собираются!");
+                Debug.LogWarning("[Tax] Сокровищница отсутствует или без рабочих мест — налоги не собираются!");
                 return;
             }
-
-            int population = vm.AllVillagers.Count;
-            if (population == 0) return;
 
             int goldPerVillager = GetGoldPerVillager(currentLevel);
             int baseGold = population * goldPerVillager;

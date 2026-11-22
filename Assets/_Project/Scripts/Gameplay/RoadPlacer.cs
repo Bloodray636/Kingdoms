@@ -4,6 +4,8 @@ using KingdomsClone.Grid;
 using KingdomsClone.Core;
 using KingdomsClone.Core.Events;
 using System.Collections.Generic;
+using UnityEngine.EventSystems;
+using KingdomsClone.Core.DebugTools;
 
 namespace KingdomsClone.Gameplay
 {
@@ -72,11 +74,20 @@ namespace KingdomsClone.Gameplay
 
             UpdateGhost();
 
-            if (Mouse.current.leftButton.isPressed)
+            if (Mouse.current.leftButton.isPressed && !IsPointerOverUI())
                 TryPlaceRoad();
 
             if (Mouse.current.leftButton.wasReleasedThisFrame)
                 Cancel();
+        }
+
+        private static bool IsPointerOverUI()
+        {
+            if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
+                return true;
+            if (DebugMenu.IsOpen)
+                return true;
+            return false;
         }
 
         private void UpdateGhost()
@@ -115,19 +126,13 @@ namespace KingdomsClone.Gameplay
             if (!CanPlaceRoad(cell)) return;
 
             var c = grid.GetCell(cell.x, cell.y);
-
-            // Если лес — вырубаем деревья на клетке (упрощённо)
-            if (c.Type == TileType.Forest)
-                ClearTreesOnCell(cell);
+            c.PreviousType = c.Type;   // для будущего сноса дороги
 
             c.Type = TileType.Road;
             c.UpdateMovementCost();
 
             EventBus.Publish(new RoadPlacedEvent { X = cell.x, Y = cell.y });
-            EventBus.Publish(new PathInvalidationEvent 
-            { 
-                Cells = new List<Vector2Int> { cell } 
-            });
+            EventBus.Publish(new PathCacheClearEvent());
         }
 
         private void ClearTreesOnCell(Vector2Int cell)
@@ -155,6 +160,7 @@ namespace KingdomsClone.Gameplay
             var c = grid.GetCell(cell.x, cell.y);
             if (c == null) return false;
             if (c.Type == TileType.Road) return false;
+            if (c.Type == TileType.Forest) return false;
             if (!c.IsWalkable()) return false;
             if (!c.IsFree()) return false;
 

@@ -22,6 +22,7 @@ namespace KingdomsClone.Grid
         [SerializeField] private Color waterColor    = new Color(0.2f, 0.5f, 0.8f);
         [SerializeField] private Color fertileColor  = new Color(0.8f, 0.7f, 0.4f);
         [SerializeField] private Color roadColor     = new Color(0.35f, 0.30f, 0.25f);
+        [SerializeField] private Color swampColor    = new Color(0.227f, 0.290f, 0.165f, 1f); // #3A4A2A
 
         private Dictionary<TileType, Color> _colorDict;
 
@@ -41,6 +42,7 @@ namespace KingdomsClone.Grid
                 { TileType.Water,   waterColor   },
                 { TileType.Fertile, fertileColor },
                 { TileType.Road,    roadColor    },
+                { TileType.Swamp,   swampColor   },   // ← НОВОЕ
             };
         }
 
@@ -103,7 +105,7 @@ namespace KingdomsClone.Grid
                     Cell cell = grid.GetCell(x, y);
                     if (cell == null) continue;
 
-                    // ФИКС 2.4: правильная трансформация в локальное пространство визуализатора.
+                    // Правильная трансформация в локальное пространство визуализатора.
                     // Работает независимо от позиции/поворота/масштаба визуализатора.
                     Vector3 worldCenter = grid.CellToWorld(x, y);
                     worldCenter.y = grid.GetSurfaceY(x, y);
@@ -134,6 +136,7 @@ namespace KingdomsClone.Grid
                     }
                     else
                     {
+                        // Swamp, Grass, Forest, Rock, Fertile, Road — все в land-меш
                         int s = landVerts.Count;
                         landVerts.Add(p0); landVerts.Add(p1); landVerts.Add(p2); landVerts.Add(p3);
                         landColors.Add(c); landColors.Add(c); landColors.Add(c); landColors.Add(c);

@@ -5,7 +5,9 @@ namespace KingdomsClone.Data
     [CreateAssetMenu(
         menuName = "KingdomsClone/Resource",
         fileName = "Resource_New",
-        order = 1)]
+        order = 1)
+    ]
+    
     public class ResourceDataSO : DataSO
     {
         [Header("Classification")]

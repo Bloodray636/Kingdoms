@@ -3,9 +3,6 @@ using UnityEngine;
 
 namespace KingdomsClone.Core.Pooling
 {
-    /// <summary>
-    /// Пул для одного префаба. Оборачивает Instantiate/SetActive(false).
-    /// </summary>
     public class ObjectPool
     {
         private readonly GameObject _prefab;
@@ -26,8 +23,7 @@ namespace KingdomsClone.Core.Pooling
             _parent = parent;
             _maxSize = maxSize;
 
-            for (int i = 0; i < prewarmCount; i++)
-            {
+            for (int i = 0; i < prewarmCount; i++) {
                 var obj = CreateNew();
                 obj.SetActive(false);
                 _available.Push(obj);
@@ -37,17 +33,16 @@ namespace KingdomsClone.Core.Pooling
         public GameObject Get(Vector3 pos, Quaternion rot)
         {
             GameObject obj = null;
-            // Скипаем "мёртвые" объекты (например, уничтоженные вручную)
-            while (_available.Count > 0 && obj == null)
+            while (_available.Count > 0 && obj == null) {
                 obj = _available.Pop();
+            }
 
-            if (obj == null)
-            {
-                if (_maxSize > 0 && _totalCreated >= _maxSize)
-                {
+            if (obj == null) {
+                if (_maxSize > 0 && _totalCreated >= _maxSize) {
                     Debug.LogWarning($"[ObjectPool] '{_prefab.name}' достиг лимита {_maxSize}. Возвращаю null.");
                     return null;
                 }
+
                 obj = CreateNew();
             }
 
@@ -56,8 +51,9 @@ namespace KingdomsClone.Core.Pooling
             obj.transform.rotation = rot;
             obj.SetActive(true);
 
-            foreach (var p in obj.GetComponents<IPoolable>())
+            foreach (var p in obj.GetComponents<IPoolable>()) {
                 p.OnGetFromPool();
+            }
 
             _inUse.Add(obj);
             return obj;
@@ -66,10 +62,11 @@ namespace KingdomsClone.Core.Pooling
         public bool Return(GameObject obj)
         {
             if (obj == null) return false;
-            if (!_inUse.Remove(obj)) return false; // не наш или уже вернули
+            if (!_inUse.Remove(obj)) return false;
 
-            foreach (var p in obj.GetComponents<IPoolable>())
+            foreach (var p in obj.GetComponents<IPoolable>()) {
                 p.OnReturnToPool();
+            }
 
             obj.SetActive(false);
             obj.transform.SetParent(_parent, false);

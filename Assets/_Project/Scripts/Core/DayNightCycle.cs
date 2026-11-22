@@ -3,11 +3,6 @@ using KingdomsClone.Core.Events;
 
 namespace KingdomsClone.Core
 {
-    /// <summary>
-    /// Крутит Directional Light и RenderSettings по DayProgress из TimeManager.
-    /// [ExecuteAlways] оставлен для ContextMenu-превью в редакторе,
-    /// но автоматическое обновление освещения — ТОЛЬКО в Play Mode.
-    /// </summary>
     [ExecuteAlways]
     public class DayNightCycle : MonoBehaviour
     {
@@ -18,6 +13,7 @@ namespace KingdomsClone.Core
 
         [Header("Gradients (0 = полночь, 0.5 = полдень, 1 = полночь)")]
         [SerializeField] private Gradient sunColor;
+
         [SerializeField] private AnimationCurve sunIntensity = new AnimationCurve(
             new Keyframe(0f, 0f),
             new Keyframe(0.25f, 0f),
@@ -25,6 +21,7 @@ namespace KingdomsClone.Core
             new Keyframe(0.75f, 0f),
             new Keyframe(1f, 0f)
         );
+
         [SerializeField] private Gradient ambientColor;
         [SerializeField] private Gradient fogColor;
 
@@ -32,7 +29,6 @@ namespace KingdomsClone.Core
         [SerializeField] private AnimationCurve moonIntensity;
         [SerializeField] private Color moonColor = new Color(0.6f, 0.7f, 1f);
 
-        // ФИКС: только один активный цикл управляет глобальным освещением
         private static DayNightCycle _activeCycle;
 
         private void OnEnable()
@@ -40,30 +36,32 @@ namespace KingdomsClone.Core
             _activeCycle = this;
             EventBus.Subscribe<GameTickEvent>(OnTick);
 
-            // ФИКС: в редакторе (не Play Mode) не трогаем RenderSettings автоматически
-            if (Application.isPlaying)
+            if (Application.isPlaying) {
                 RefreshFromTimeManager();
+            }
         }
 
         private void OnDisable()
         {
             EventBus.Unsubscribe<GameTickEvent>(OnTick);
-            if (_activeCycle == this) _activeCycle = null;
+
+            if (_activeCycle == this) {
+                _activeCycle = null;
+            }
         }
 
         private void OnTick(GameTickEvent _)
         {
-            // ФИКС: только активный цикл реагирует на тики. Остальные молчат.
             if (_activeCycle != this) return;
             RefreshFromTimeManager();
         }
 
         private void RefreshFromTimeManager()
         {
-            // ФИКС: в редакторе нет реального геймплея — TimeManager.Instance может быть null или висеть в Awake
             if (!Application.isPlaying) return;
 
             var tm = TimeManager.Instance;
+
             if (tm == null) return;
 
             ApplyLighting(tm.DayProgress);
@@ -80,8 +78,7 @@ namespace KingdomsClone.Core
             sun.intensity = sunIntensity.Evaluate(t);
             sun.enabled = sun.intensity > 0.01f;
 
-            if (moon != null && moonIntensity != null)
-            {
+            if (moon != null && moonIntensity != null) {
                 moon.transform.rotation = Quaternion.Euler(sunAngle + 180f, sunTilt, 0f);
                 moon.color = moonColor;
                 moon.intensity = moonIntensity.Evaluate(t);
@@ -93,7 +90,6 @@ namespace KingdomsClone.Core
             RenderSettings.fogColor = fogColor.Evaluate(t);
         }
 
-        // ---------- Preview в редакторе (ручной вызов) ----------
         [ContextMenu("Preview 00:00 (Midnight)")]
         private void PreviewMidnight() => ApplyLighting(0f);
 

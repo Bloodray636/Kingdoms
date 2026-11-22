@@ -15,10 +15,6 @@ namespace KingdomsClone.Core.Events
         public Vector2Int Position;
     }
 
-    /// <summary>
-    /// Публикуется, когда игрок попытался поставить здание, но не смог.
-    /// Причина: "Нет ресурсов", "Занято", "Вода" и т.д.
-    /// </summary>
     public struct BuildingPlacementRejectedEvent
     {
         public BuildingDataSO Data;

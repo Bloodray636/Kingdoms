@@ -300,6 +300,7 @@ MonoBehaviour:
   waterColor: {r: 0.44705883, g: 0.75686276, b: 0.78431374, a: 1}
   fertileColor: {r: 0.9490196, g: 0.9019608, b: 0.7019608, a: 1}
   roadColor: {r: 0.35, g: 0.3, b: 0.25, a: 1}
+  swampColor: {r: 0.227, g: 0.29, b: 0.165, a: 1}
 --- !u!4 &247195873
 Transform:
   m_ObjectHideFlags: 0
@@ -522,6 +523,8 @@ MonoBehaviour:
   maxPitch: 70
   scrollSensitivity: 0.05
   zoomSmoothTime: 0.5
+  orthographicMinSize: 5
+  orthographicMaxSize: 40
   mapMin: {x: 0, y: 0}
   mapMax: {x: 100, y: 100}
 --- !u!1 &371315476
@@ -861,8 +864,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b231f5ae9bacf7d4784d87befb5edfc9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::KingdomsClone.Grid.GridSystem
-  width: 100
-  height: 100
+  width: 250
+  height: 250
   cellSize: 1
   originPosition: {x: 0, y: 0, z: 0}
   surfaceYOffset: 0.05
@@ -1004,7 +1007,7 @@ MonoBehaviour:
   panelHeight: 46
   slotWidth: 110
   slotSpacing: 6
-  panelPadding: {x: 12, y: 4}
+  panelPadding: {x: 22, y: 4}
   panelBg: {r: 0.07, g: 0.08, b: 0.11, a: 0.92}
   slotBg: {r: 0.12, g: 0.14, b: 0.18, a: 1}
   gainFlash: {r: 0.3, g: 0.9, b: 0.3, a: 1}
@@ -1104,6 +1107,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::KingdomsClone.Gameplay.BuildingDemolisher
   highlightMaterial: {fileID: 2100000, guid: 0896a7d6ae151794e92823b4d4965dfb, type: 2}
+  highlightRoadMaterial: {fileID: 0}
   highlightYOffset: 0.15
   buildingLayerMask:
     serializedVersion: 2

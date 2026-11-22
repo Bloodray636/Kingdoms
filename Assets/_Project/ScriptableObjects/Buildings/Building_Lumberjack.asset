@@ -20,7 +20,7 @@ MonoBehaviour:
   size: {x: 2, y: 2}
   category: 1
   maxHealth: 100
-  workerSlots: 1
+  workerSlots: 2
   storageCapacity: 0
   buildTimeSeconds: 5
   jobType: 1

@@ -22,9 +22,10 @@ MonoBehaviour:
   maxHealth: 50
   workerSlots: 0
   storageCapacity: 0
-  buildTimeSeconds: 3
+  buildTimeSeconds: 5
   jobType: 0
   jobPriority: 1
+  recipe: {fileID: 0}
   maxResidents: 3
   buildCost:
   - resource: {fileID: 11400000, guid: ac161cb7f7d3d0242883de59bfa61b93, type: 2}

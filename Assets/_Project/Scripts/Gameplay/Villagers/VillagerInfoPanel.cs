@@ -28,7 +28,12 @@ namespace KingdomsClone.Gameplay
         public void Show(Villager v)
         {
             _target = v;
-            if (_target == null) { Hide(); return; }
+
+            if (_target == null) { 
+                Hide(); 
+                return; 
+            }
+
             _panel.SetActive(true);
             Refresh();
         }
@@ -36,16 +41,27 @@ namespace KingdomsClone.Gameplay
         public void Hide()
         {
             _target = null;
-            if (_panel != null) _panel.SetActive(false);
+
+            if (_panel != null) {
+                _panel.SetActive(false);
+            } 
         }
 
         private void Update()
         {
             if (_target == null || _panel == null || !_panel.activeSelf) return;
-            if (_target.gameObject == null || !_target.gameObject.activeInHierarchy) { Hide(); return; }
+
+            if (_target.gameObject == null || !_target.gameObject.activeInHierarchy) { 
+                Hide();
+                return; 
+            }
 
             _updateTimer += Time.deltaTime;
-            if (_updateTimer >= UpdateInterval) { _updateTimer = 0f; Refresh(); }
+
+            if (_updateTimer >= UpdateInterval) { 
+                _updateTimer = 0f; 
+                Refresh(); 
+            }
         }
 
         private void Refresh()
@@ -55,15 +71,17 @@ namespace KingdomsClone.Gameplay
             _nameText.text = _target.VillagerName ?? "Безымянный";
             _stateText.text = $"Состояние: {StateRu(_target.State)}";
 
-            if (_target.CurrentJob != null)
+            if (_target.CurrentJob != null) {
                 _jobText.text = $"Работа: {JobRu(_target.CurrentJob.Type)} ({_target.CurrentJob.WorkplaceCell})";
-            else
+            } else {
                 _jobText.text = "Работа: безработный";
+            }
 
-            if (_target.HomeBuilding != null && _target.HomeBuilding.Data != null)
+            if (_target.HomeBuilding != null && _target.HomeBuilding.Data != null) {
                 _homeText.text = $"Дом: {_target.HomeBuilding.Data.DisplayName} ({_target.HomeBuilding.GridPosition})";
-            else
+            } else {
                 _homeText.text = "Дом: нет";
+            }
 
             int hunger = _target.HungerLevel;
             _hungerText.text = $"Голод: {hunger}/3 {(hunger >= 2 ? "⚠ Голодает" : "")}";
@@ -76,35 +94,42 @@ namespace KingdomsClone.Gameplay
 
         private static string StateRu(VillagerState s) => s switch
         {
-            VillagerState.Idle  => "Отдыхает",
-            VillagerState.Move  => "Идёт",
-            VillagerState.Work  => "Работает",
-            VillagerState.Eat   => "Ест",
+            VillagerState.Idle => "Отдыхает",
+            VillagerState.Move => "Идёт",
+            VillagerState.Work => "Работает",
+            VillagerState.Eat => "Ест",
             VillagerState.Sleep => "Спит",
-            VillagerState.Flee  => "Бежит",
+            VillagerState.Flee => "Бежит",
             _ => s.ToString()
         };
 
         private static string JobRu(JobType j) => j switch
         {
             JobType.Lumberjack => "Лесоруб",
-            JobType.Farmer     => "Фермер",
+            JobType.Farmer => "Фермер",
             JobType.StoneMiner => "Каменотёс",
-            JobType.Fisherman  => "Рыбак",
-            JobType.Treasurer  => "Казначей",
-            JobType.Miner      => "Рудокоп",       // ← НОВОЕ
-            JobType.Smelter    => "Плавильщик",    // ← НОВОЕ
-            JobType.Blacksmith => "Кузнец",        // ← НОВОЕ
-            JobType.Builder    => "Строитель",
-            JobType.Guard      => "Стражник",
+            JobType.Fisherman => "Рыбак",
+            JobType.Treasurer => "Казначей",
+            JobType.Miner => "Рудокоп",       
+            JobType.Smelter => "Плавильщик",    
+            JobType.Blacksmith => "Кузнец",        
+            JobType.Builder => "Строитель",
+            JobType.Guard => "Стражник",
             _ => "—"
         };
 
         private Font LoadFont()
         {
             var f = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (f == null) f = Resources.GetBuiltinResource<Font>("Arial.ttf");
-            if (f == null) f = Font.CreateDynamicFontFromOSFont("Arial", 16);
+
+            if (f == null) {
+                f = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            }
+
+            if (f == null) {
+                f = Font.CreateDynamicFontFromOSFont("Arial", 16);
+            }
+
             return f;
         }
 
@@ -123,6 +148,7 @@ namespace KingdomsClone.Gameplay
 
             _panel = new GameObject("Panel", typeof(RectTransform), typeof(Image));
             _panel.transform.SetParent(_canvas.transform, false);
+
             var rect = _panel.GetComponent<RectTransform>();
             rect.anchorMin = new Vector2(1, 0);
             rect.anchorMax = new Vector2(1, 0);
@@ -134,6 +160,7 @@ namespace KingdomsClone.Gameplay
             // Close
             var closeGo = new GameObject("CloseBtn", typeof(RectTransform), typeof(Image), typeof(Button));
             closeGo.transform.SetParent(_panel.transform, false);
+
             var cRect = closeGo.GetComponent<RectTransform>();
             cRect.anchorMin = new Vector2(1, 1);
             cRect.anchorMax = new Vector2(1, 1);
@@ -144,9 +171,11 @@ namespace KingdomsClone.Gameplay
 
             var cTextGo = new GameObject("Label", typeof(RectTransform), typeof(Text));
             cTextGo.transform.SetParent(closeGo.transform, false);
+
             var ctRect = cTextGo.GetComponent<RectTransform>();
             ctRect.anchorMin = Vector2.zero; ctRect.anchorMax = Vector2.one;
             ctRect.offsetMin = Vector2.zero; ctRect.offsetMax = Vector2.zero;
+
             var cText = cTextGo.GetComponent<Text>();
             cText.text = "✖"; cText.font = _font; cText.fontSize = 20;
             cText.alignment = TextAnchor.MiddleCenter; cText.color = Color.white;
@@ -165,6 +194,7 @@ namespace KingdomsClone.Gameplay
         {
             var go = new GameObject("Label", typeof(RectTransform), typeof(Text));
             go.transform.SetParent(parent, false);
+            
             var rect = go.GetComponent<RectTransform>();
             rect.anchorMin = new Vector2(0, 1);
             rect.anchorMax = new Vector2(0, 1);

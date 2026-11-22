@@ -5,7 +5,9 @@ namespace KingdomsClone.Data
     [CreateAssetMenu(
         menuName = "KingdomsClone/Unit",
         fileName = "Unit_New",
-        order = 3)]
+        order = 3)
+    ]
+    
     public class UnitDataSO : DataSO
     {
         [Header("Visual")]

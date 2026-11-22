@@ -13,20 +13,28 @@ namespace KingdomsClone.Core.Pooling
 
         private void Awake()
         {
-            if (Instance != null && Instance != this) { Destroy(gameObject); return; }
+            if (Instance != null && Instance != this) { 
+                Destroy(gameObject); 
+                return; 
+            }
+
             Instance = this;
             DontDestroyOnLoad(gameObject);
         }
 
-        private void OnDestroy() { if (Instance == this) Instance = null; }
+        private void OnDestroy() { 
+            if (Instance == this) {
+                Instance = null; 
+            }
+        }
 
-        /// <summary>
-        /// Заранее создать пул и прогреть N экземпляров.
-        /// </summary>
         public ObjectPool Prewarm(GameObject prefab, int count, int maxSize = 500)
         {
             if (prefab == null) return null;
-            if (_pools.TryGetValue(prefab, out var pool)) return pool;
+
+            if (_pools.TryGetValue(prefab, out var pool)) {
+                return pool;
+            }
 
             pool = new ObjectPool(prefab, transform, count, maxSize);
             _pools[prefab] = pool;
@@ -37,14 +45,17 @@ namespace KingdomsClone.Core.Pooling
         {
             if (prefab == null) return null;
 
-            if (!_pools.TryGetValue(prefab, out var pool))
-            {
+            if (!_pools.TryGetValue(prefab, out var pool)) {
                 pool = new ObjectPool(prefab, transform, 0, 500);
                 _pools[prefab] = pool;
             }
 
             var obj = pool.Get(pos, rot);
-            if (obj != null) _instanceToPool[obj] = pool;
+
+            if (obj != null) {
+                _instanceToPool[obj] = pool;
+            }
+
             return obj;
         }
 
@@ -52,14 +63,10 @@ namespace KingdomsClone.Core.Pooling
         {
             if (instance == null) return;
 
-            if (_instanceToPool.TryGetValue(instance, out var pool))
-            {
+            if (_instanceToPool.TryGetValue(instance, out var pool)) {
                 _instanceToPool.Remove(instance);
                 pool.Return(instance);
-            }
-            else
-            {
-                // Не из пула — вероятно, был создан через Instantiate. Уничтожаем.
+            } else {
                 Destroy(instance);
             }
         }

@@ -10,12 +10,7 @@ namespace KingdomsClone.UI
     /// <summary>
     /// ЗАГЛУШКА под Epic 11 (торговля).
     /// Показывает панель с инвентарём игрока и кнопками "Скоро".
-    /// 
-    /// В Epic 11: заменить "Скоро" на:
-    /// - список торговых предложений (продать/купить)
-    /// - караваны (прибытие/отправка)
-    /// - отношения с AI-королевствами
-    /// - цены, зависящие от репутации
+    /// Пока открыта — подписана на OnResourceChanged, ресурсы обновляются live.
     /// </summary>
     public class TradePanelUI : MonoBehaviour
     {
@@ -39,6 +34,10 @@ namespace KingdomsClone.UI
         private RectTransform _resourceListRect;
         private bool _isOpen = false;
 
+        // ФИКС: отслеживаем строки по Id, чтобы обновлять только цифру,
+        // а не пересобирать весь список при каждом изменении ресурса.
+        private readonly Dictionary<string, Text> _rowLabelsById = new();
+
         public bool IsOpen => _isOpen;
 
         private void Awake()
@@ -49,21 +48,24 @@ namespace KingdomsClone.UI
             if (_dim != null) _dim.SetActive(false);
         }
 
+        private void OnDestroy()
+        {
+            // На случай, если компонент уничтожили, пока панель открыта
+            UnsubscribeFromResources();
+        }
+
         private void Update()
         {
             var kb = Keyboard.current;
             if (kb == null) return;
 
-            bool togglePressed = false;
-            var toggleCtrl = kb[toggleKey];
-            if (toggleCtrl != null)
-                togglePressed = toggleCtrl.wasPressedThisFrame;
+            // ФИКС: не переключать, если открыт DebugMenu или в фокусе IMGUI-поле
+            if (!_isOpen && KingdomsClone.Core.DebugTools.DebugMenu.IsOpen) return;
+            if (GUIUtility.keyboardControl != 0) return;
 
-            if (togglePressed)
-            {
-                if (!_isOpen && KingdomsClone.Core.DebugTools.DebugMenu.IsOpen) return;
+            var toggleCtrl = kb[toggleKey];
+            if (toggleCtrl != null && toggleCtrl.wasPressedThisFrame)
                 Toggle();
-            }
 
             if (_isOpen && kb.escapeKey.wasPressedThisFrame)
                 Close();
@@ -77,17 +79,53 @@ namespace KingdomsClone.UI
 
         public void Open()
         {
+            if (_isOpen) return;
             _isOpen = true;
             _panel.SetActive(true);
             if (_dim != null) _dim.SetActive(true);
             RefreshResourceList();
+            SubscribeToResources();   // ФИКС: подписка на live-обновления
         }
 
         public void Close()
         {
+            if (!_isOpen) return;
             _isOpen = false;
             _panel.SetActive(false);
             if (_dim != null) _dim.SetActive(false);
+            UnsubscribeFromResources();   // ФИКС: отписка, чтобы не дёргать закрытую панель
+        }
+
+        // ═══════════════════ ПОДПИСКИ ═══════════════════
+
+        private void SubscribeToResources()
+        {
+            if (ResourceManager.Instance == null) return;
+            // Защита от двойной подписки (на случай, если Open вызовут дважды)
+            ResourceManager.Instance.OnResourceChanged -= OnResourceChanged;
+            ResourceManager.Instance.OnResourceChanged += OnResourceChanged;
+        }
+
+        private void UnsubscribeFromResources()
+        {
+            if (ResourceManager.Instance == null) return;
+            ResourceManager.Instance.OnResourceChanged -= OnResourceChanged;
+        }
+
+        private void OnResourceChanged(ResourceDataSO res, int oldAmt, int newAmt)
+        {
+            if (!_isOpen || res == null) return;
+
+            if (_rowLabelsById.TryGetValue(res.Id, out var label) && label != null)
+            {
+                // ФИКС: инкрементальное обновление — только цифра, без пересборки
+                label.text = $"{res.DisplayName}: <b>{newAmt}</b>";
+                return;
+            }
+
+            // Ресурс, о котором не знали (динамически добавлен в Runtime) —
+            // пересобираем весь список.
+            RefreshResourceList();
         }
 
         // ═══════════════════ ПОСТРОЕНИЕ ═══════════════════
@@ -106,7 +144,6 @@ namespace KingdomsClone.UI
             scaler.referenceResolution = new Vector2(1920, 1080);
             scaler.matchWidthOrHeight = 0.5f;
 
-            // ═══════ ЗАТЕМНЕНИЕ ФОНА ═══════
             _dim = new GameObject("Dim", typeof(RectTransform), typeof(Image), typeof(Button));
             _dim.transform.SetParent(_canvas.transform, false);
             var dimRect = _dim.GetComponent<RectTransform>();
@@ -120,7 +157,6 @@ namespace KingdomsClone.UI
             dimImg.raycastTarget = true;
             _dim.GetComponent<Button>().onClick.AddListener(Close);
 
-            // ═══════ ОСНОВНАЯ ПАНЕЛЬ ═══════
             _panel = new GameObject("TradePanel", typeof(RectTransform), typeof(Image));
             _panel.transform.SetParent(_canvas.transform, false);
             var panelRect = _panel.GetComponent<RectTransform>();
@@ -148,7 +184,6 @@ namespace KingdomsClone.UI
             hRect.anchoredPosition = Vector2.zero;
             header.GetComponent<Image>().color = headerBg;
 
-            // Title
             var titleGo = new GameObject("Title", typeof(RectTransform), typeof(Text));
             titleGo.transform.SetParent(header.transform, false);
             var tRect = titleGo.GetComponent<RectTransform>();
@@ -166,7 +201,6 @@ namespace KingdomsClone.UI
             title.alignment = TextAnchor.MiddleLeft;
             title.raycastTarget = false;
 
-            // Close button
             var closeGo = new GameObject("Close", typeof(RectTransform), typeof(Image), typeof(Button));
             closeGo.transform.SetParent(header.transform, false);
             var cRect = closeGo.GetComponent<RectTransform>();
@@ -319,8 +353,13 @@ namespace KingdomsClone.UI
 
         private void RefreshResourceList()
         {
+            // ФИКС: чистим словарь одновременно с детьми — иначе после Destroy
+            // в словаре останутся ссылки на «мёртвые» Text, и следующее
+            // изменение ресурса попытается обновить null.
             foreach (Transform child in _resourceListRect)
                 Destroy(child.gameObject);
+
+            _rowLabelsById.Clear();
 
             var rm = ResourceManager.Instance;
             var gd = GameDataSO.Instance;
@@ -332,6 +371,10 @@ namespace KingdomsClone.UI
                 int amount = rm.GetAmount(res);
                 CreateResourceRow(res, amount);
             }
+
+            // ФИКС: форсируем layout, чтобы строки встали на место сразу,
+            // а не в конце кадра (см. ResourcePanelUI — та же проблема).
+            LayoutRebuilder.ForceRebuildLayoutImmediate(_resourceListRect);
         }
 
         private void CreateResourceRow(ResourceDataSO res, int amount)
@@ -372,6 +415,9 @@ namespace KingdomsClone.UI
             text.alignment = TextAnchor.MiddleLeft;
             text.raycastTarget = false;
             text.supportRichText = true;
+
+            // ФИКС: запоминаем Text по Id для инкрементального обновления
+            _rowLabelsById[res.Id] = text;
         }
 
         private Font LoadFont()
