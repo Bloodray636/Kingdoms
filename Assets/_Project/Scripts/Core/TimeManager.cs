@@ -25,6 +25,17 @@ namespace KingdomsClone.Core
         private int _lastDay = 1;
         private Season _lastSeason = Season.Spring; 
         private bool _isPaused = true;
+
+        [Header("Day/Night")]
+        [Tooltip("Доля дня (0..1), когда начинается ночь. 0.75 = 18:00 игровых.")]
+        [SerializeField, Range(0f, 1f)] private float nightStart = 0.75f;
+
+        [Tooltip("Доля дня (0..1), когда заканчивается ночь. 0.25 = 06:00 игровых.")]
+        [SerializeField, Range(0f, 1f)] private float nightEnd = 0.25f;
+
+        public float NightStart => nightStart;
+        public float NightEnd => nightEnd;
+
         private float _lastBacklogWarningTime = -10f;
 
         public float GameTimeSeconds => _gameTimeSeconds;
@@ -36,6 +47,51 @@ namespace KingdomsClone.Core
 
         public int Year => ((CurrentDay - 1) / (DaysPerSeason * 4)) + 1;
         public Season CurrentSeason => (Season)(((CurrentDay - 1) / DaysPerSeason) % 4);
+
+        public bool IsNight
+        {
+            get {
+                float t = DayProgress;
+
+                if (nightStart > nightEnd) {
+                    return t >= nightStart || t < nightEnd;
+                }
+
+                return t >= nightStart && t < nightEnd;
+            }
+        }
+
+        public enum DayPart { Morning, Day, Evening, Night }
+
+        public DayPart CurrentDayPart
+        {
+            get {
+                if (IsNight) return DayPart.Night;
+
+                float t = DayProgress;
+
+                if (t < 0.5f) return DayPart.Morning;
+                if (t < nightStart) return DayPart.Day;
+
+                return DayPart.Evening;
+            }
+        }
+
+        public float NightProgress
+        {
+            get {
+                if (!IsNight) return 0f;
+
+                float t = DayProgress;
+                float nightLen = nightStart > nightEnd ? (1f - nightStart) + nightEnd : nightEnd - nightStart;
+
+                if (nightLen <= 0.001f) return 0f;
+
+                float elapsed = t >= nightStart ? t - nightStart : (1f - nightStart) + t;
+                
+                return Mathf.Clamp01(elapsed / nightLen);
+            }
+        }
 
         public int DayInSeason => ((CurrentDay - 1) % DaysPerSeason) + 1;
 

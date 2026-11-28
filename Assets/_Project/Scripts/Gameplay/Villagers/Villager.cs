@@ -491,6 +491,11 @@ namespace KingdomsClone.Gameplay
                 SetCarryVisual(null);
             }
 
+            if (TimeManager.Instance != null && TimeManager.Instance.IsNight && _hunger == 0) {
+                StartGoingToSleep();
+                return;
+            }
+
             if (CurrentJob != null && _workPosition.x >= 0 && _stateTimer > RetryWorkInterval) {
                 _stateTimer = 0f;
                 MoveToCell(_workPosition, silent: true);
@@ -549,6 +554,11 @@ namespace KingdomsClone.Gameplay
                 return; 
             }
 
+            if (TimeManager.Instance != null && TimeManager.Instance.IsNight && _hunger == 0 && !_isGoingToEat && HomeBuilding != null && _targetCell != HomeBuilding.GridPosition) {
+                StartGoingToSleep();
+                return;
+            }
+
             Vector2Int cellTarget = _currentPath[_currentPathIndex];
             Vector3 worldTarget = grid.CellToWorld(cellTarget.x, cellTarget.y);
             worldTarget.y = grid.GetSurfaceY(cellTarget.x, cellTarget.y);
@@ -581,6 +591,15 @@ namespace KingdomsClone.Gameplay
             if (grid == null) { 
                 ChangeState(VillagerState.Idle); 
                 return; 
+            }
+
+            if (TimeManager.Instance != null && TimeManager.Instance.IsNight && _hunger == 0 && HomeBuilding != null) {
+                Vector2Int myCell = grid.WorldToCell(transform.position);
+
+                if (myCell == HomeBuilding.GridPosition) {
+                    ChangeState(VillagerState.Sleep);
+                    return;
+                }
             }
 
             if (_isGoingToEat && _eatStorage != null) {
@@ -711,6 +730,11 @@ namespace KingdomsClone.Gameplay
         {
             if (CurrentJob == null || CurrentJob.Workplace == null || CurrentJob.Workplace.Data == null) {
                 ChangeState(VillagerState.Idle);
+                return;
+            }
+
+            if (TimeManager.Instance != null && TimeManager.Instance.IsNight && _hunger == 0) {
+                StartGoingToSleep();
                 return;
             }
 
@@ -857,8 +881,19 @@ namespace KingdomsClone.Gameplay
         }
 
         private void UpdateSleep() { 
-            if (_stateTimer > 4f) {
+            if (TimeManager.Instance == null) { 
                 ChangeState(VillagerState.Idle); 
+                return; 
+            }
+
+            if (TimeManager.Instance.IsNight) return;
+
+            Debug.Log($"[Villager] {gameObject.name}: проснулся после ночи");
+
+            if (CurrentJob != null && _workPosition.x >= 0) {
+                MoveToCell(_workPosition, silent: true);
+            } else {
+                ChangeState(VillagerState.Idle);
             }
         }
 
@@ -993,6 +1028,34 @@ namespace KingdomsClone.Gameplay
             _targetCell = target;
             ChangeState(VillagerState.Move);
             return true;
+        }
+
+        private void StartGoingToSleep()
+        {
+            if (HomeBuilding == null) {
+                ChangeState(VillagerState.Sleep);
+                return;
+            }
+
+            var grid = GridSystem.Instance;
+
+            if (grid == null) {
+                ChangeState(VillagerState.Sleep);
+                return;
+            }
+
+            Vector2Int homeCell = HomeBuilding.GridPosition;
+            Vector2Int myCell = grid.WorldToCell(transform.position);
+
+            // Уже в клетке дома
+            if (myCell == homeCell) {
+                ChangeState(VillagerState.Sleep);
+                return;
+            }
+
+            if (!MoveToCell(homeCell, silent: true)) {
+                ChangeState(VillagerState.Sleep);
+            }
         }
 
         public void ForceState(VillagerState s) => ChangeState(s);
