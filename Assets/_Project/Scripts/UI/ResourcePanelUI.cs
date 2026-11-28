@@ -26,7 +26,7 @@ namespace KingdomsClone.UI
         private Font _font;
         private Canvas _canvas;
         private GameObject _panel;
-        private RectTransform _panelRect;     // кеш, чтобы не дёргать GetComponent
+        private RectTransform _panelRect; 
         private RectTransform _rowRect;
 
         private class Slot
@@ -59,43 +59,50 @@ namespace KingdomsClone.UI
 
         private void Update()
         {
-            for (int i = 0; i < _slots.Count; i++)
-            {
+            for (int i = 0; i < _slots.Count; i++) {
                 var s = _slots[i];
+
                 if (s.flashTimer <= 0) continue;
 
                 s.flashTimer -= Time.deltaTime;
                 float t = Mathf.Clamp01(s.flashTimer / flashDuration);
 
-                if (s.bgImage != null)
+                if (s.bgImage != null) {
                     s.bgImage.color = Color.Lerp(s.baseColor, Color.white, t * 0.5f);
+                }
 
-                if (s.amountText != null)
+                if (s.amountText != null) {
                     s.amountText.color = Color.Lerp(s.flashColor, Color.white, 1f - t);
+                }
 
-                if (s.flashTimer <= 0f)
-                {
-                    if (s.bgImage != null) s.bgImage.color = s.baseColor;
-                    if (s.amountText != null) s.amountText.color = Color.white;
+                if (s.flashTimer <= 0f) {
+                    if (s.bgImage != null) {
+                        s.bgImage.color = s.baseColor;
+                    }
+
+                    if (s.amountText != null) {
+                        s.amountText.color = Color.white;
+                    }
                 }
             }
         }
 
-        // ═══════════════════ ПОДПИСКИ ═══════════════════
+        // Подписки
 
         private void Subscribe()
         {
-            if (ResourceManager.Instance == null)
-            {
+            if (ResourceManager.Instance == null) {
                 Debug.LogError("[ResourcePanelUI] ResourceManager.Instance == null — панель не будет обновляться!");
                 return;
             }
+
             ResourceManager.Instance.OnResourceChanged += OnResourceChanged;
         }
 
         private void Unsubscribe()
         {
             if (ResourceManager.Instance == null) return;
+
             ResourceManager.Instance.OnResourceChanged -= OnResourceChanged;
         }
 
@@ -103,27 +110,22 @@ namespace KingdomsClone.UI
         {
             if (res == null) return;
 
-            if (!_slotsById.TryGetValue(res.Id, out var slot))
-            {
-                // ФИКС: динамический слот — создаём, ресайзим панель И
-                // принудительно перестраиваем layout СРАЗУ, а не в конце кадра.
-                // Иначе новый слот в этом кадре остаётся в старой позиции
-                // (сразу за последним старым) и визуально вылезает за панель,
-                // пока Canvas не прокачает layout-rebuild.
+            if (!_slotsById.TryGetValue(res.Id, out var slot)) {
                 CreateSlot(res);
                 ResizePanel();
                 ForceLayoutNow();
                 return;
             }
 
-            if (slot.amountText != null)
+            if (slot.amountText != null) {
                 slot.amountText.text = $"{slot.shortName} {newAmt}";
+            }
 
             slot.flashTimer = flashDuration;
             slot.flashColor = newAmt > oldAmt ? gainFlash : lossFlash;
         }
 
-        // ═══════════════════ ПОСТРОЕНИЕ ═══════════════════
+        // Построение
 
         private void BuildUI()
         {
@@ -162,10 +164,6 @@ namespace KingdomsClone.UI
             var hlg = rowGo.GetComponent<HorizontalLayoutGroup>();
             hlg.childAlignment = TextAnchor.MiddleLeft;
             hlg.spacing = slotSpacing;
-            // ФИКС: childControlWidth = TRUE, чтобы HorizontalLayoutGroup
-            // реально уважал LayoutElement.preferredWidth = slotWidth.
-            // При false Unity игнорирует preferredWidth и берёт sizeDelta
-            // (по умолчанию 100), что расходится с расчётом ResizePanel.
             hlg.childControlWidth = true;
             hlg.childForceExpandWidth = false;
             hlg.childControlHeight = true;
@@ -176,10 +174,10 @@ namespace KingdomsClone.UI
         private void PopulateFromGameData()
         {
             var gd = GameDataSO.Instance;
+
             if (gd == null || gd.Resources == null) return;
 
-            foreach (var res in gd.Resources)
-            {
+            foreach (var res in gd.Resources) {
                 if (res == null) continue;
                 CreateSlot(res);
             }
@@ -195,9 +193,6 @@ namespace KingdomsClone.UI
             var slotGo = new GameObject($"Slot_{res.Id}", typeof(RectTransform), typeof(Image));
             slotGo.transform.SetParent(_rowRect, false);
 
-            // ФИКС: явно задаём размер слота. Не надеемся на layout group —
-            // sizeDelta задаёт базу, а LayoutElement.preferredWidth дублирует
-            // (на случай, если кто-то переключит childControlWidth обратно в false).
             var slotRT = slotGo.GetComponent<RectTransform>();
             float slotHeight = panelHeight - panelPadding.y * 2;
             slotRT.sizeDelta = new Vector2(slotWidth, slotHeight);
@@ -218,6 +213,7 @@ namespace KingdomsClone.UI
 
             var iconGo = new GameObject("Icon", typeof(RectTransform), typeof(Image));
             iconGo.transform.SetParent(slotGo.transform, false);
+
             var iconRect = iconGo.GetComponent<RectTransform>();
             iconRect.anchorMin = new Vector2(0, 0.5f);
             iconRect.anchorMax = new Vector2(0, 0.5f);
@@ -231,6 +227,7 @@ namespace KingdomsClone.UI
 
             var labelGo = new GameObject("Label", typeof(RectTransform), typeof(Text));
             labelGo.transform.SetParent(slotGo.transform, false);
+
             var labelRect = labelGo.GetComponent<RectTransform>();
             labelRect.anchorMin = Vector2.zero;
             labelRect.anchorMax = Vector2.one;
@@ -248,8 +245,7 @@ namespace KingdomsClone.UI
             label.raycastTarget = false;
             label.horizontalOverflow = HorizontalWrapMode.Overflow;
 
-            var slot = new Slot
-            {
+            var slot = new Slot {
                 resource = res,
                 shortName = shortName,
                 amountText = label,
@@ -267,16 +263,11 @@ namespace KingdomsClone.UI
         {
             int count = _slots.Count;
             float width = panelPadding.x * 2 + count * slotWidth + Mathf.Max(0, count - 1) * slotSpacing;
-            width = Mathf.Max(100, width);
 
+            width = Mathf.Max(100, width);
             _panelRect.sizeDelta = new Vector2(width, panelHeight);
         }
 
-        /// <summary>
-        /// Форсирует перестройку layout СРАЗУ, а не в конце кадра.
-        /// Без этого новый слот в текущем кадре остаётся в старой позиции
-        /// (за краем только что расширенной панели) до следующего Canvas update.
-        /// </summary>
         private void ForceLayoutNow()
         {
             if (_rowRect == null) return;
@@ -293,8 +284,15 @@ namespace KingdomsClone.UI
         private Font LoadFont()
         {
             var f = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (f == null) f = Resources.GetBuiltinResource<Font>("Arial.ttf");
-            if (f == null) f = Font.CreateDynamicFontFromOSFont("Arial", 16);
+
+            if (f == null) {
+                f = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            }
+            
+            if (f == null) {
+                f = Font.CreateDynamicFontFromOSFont("Arial", 16);
+            }
+
             return f;
         }
     }

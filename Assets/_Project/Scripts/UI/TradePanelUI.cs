@@ -7,11 +7,6 @@ using KingdomsClone.Data;
 
 namespace KingdomsClone.UI
 {
-    /// <summary>
-    /// ЗАГЛУШКА под Epic 11 (торговля).
-    /// Показывает панель с инвентарём игрока и кнопками "Скоро".
-    /// Пока открыта — подписана на OnResourceChanged, ресурсы обновляются live.
-    /// </summary>
     public class TradePanelUI : MonoBehaviour
     {
         [Header("Hotkey")]
@@ -33,9 +28,6 @@ namespace KingdomsClone.UI
         private GameObject _panel;
         private RectTransform _resourceListRect;
         private bool _isOpen = false;
-
-        // ФИКС: отслеживаем строки по Id, чтобы обновлять только цифру,
-        // а не пересобирать весь список при каждом изменении ресурса.
         private readonly Dictionary<string, Text> _rowLabelsById = new();
 
         public bool IsOpen => _isOpen;
@@ -45,12 +37,14 @@ namespace KingdomsClone.UI
             _font = LoadFont();
             BuildUI();
             _panel.SetActive(false);
-            if (_dim != null) _dim.SetActive(false);
+
+            if (_dim != null) {
+                _dim.SetActive(false);
+            }
         }
 
         private void OnDestroy()
         {
-            // На случай, если компонент уничтожили, пока панель открыта
             UnsubscribeFromResources();
         }
 
@@ -58,50 +52,64 @@ namespace KingdomsClone.UI
         {
             var kb = Keyboard.current;
             if (kb == null) return;
-
-            // ФИКС: не переключать, если открыт DebugMenu или в фокусе IMGUI-поле
             if (!_isOpen && KingdomsClone.Core.DebugTools.DebugMenu.IsOpen) return;
             if (GUIUtility.keyboardControl != 0) return;
 
             var toggleCtrl = kb[toggleKey];
-            if (toggleCtrl != null && toggleCtrl.wasPressedThisFrame)
-                Toggle();
 
-            if (_isOpen && kb.escapeKey.wasPressedThisFrame)
+            if (toggleCtrl != null && toggleCtrl.wasPressedThisFrame) {
+                Toggle();
+            }
+
+            if (_isOpen && kb.escapeKey.wasPressedThisFrame) {
                 Close();
+            }
         }
 
         public void Toggle()
         {
-            if (_isOpen) Close();
-            else Open();
+            if (_isOpen) {
+                Close();
+            } else {
+                Open();
+            }
         }
 
         public void Open()
         {
             if (_isOpen) return;
+
             _isOpen = true;
             _panel.SetActive(true);
-            if (_dim != null) _dim.SetActive(true);
+
+            if (_dim != null) {
+                _dim.SetActive(true);
+            }
+
             RefreshResourceList();
-            SubscribeToResources();   // ФИКС: подписка на live-обновления
+            SubscribeToResources();
         }
 
         public void Close()
         {
             if (!_isOpen) return;
+
             _isOpen = false;
             _panel.SetActive(false);
-            if (_dim != null) _dim.SetActive(false);
-            UnsubscribeFromResources();   // ФИКС: отписка, чтобы не дёргать закрытую панель
+
+            if (_dim != null) {
+                _dim.SetActive(true);
+            }
+
+            UnsubscribeFromResources();
         }
 
-        // ═══════════════════ ПОДПИСКИ ═══════════════════
+        // Подписки
 
         private void SubscribeToResources()
         {
             if (ResourceManager.Instance == null) return;
-            // Защита от двойной подписки (на случай, если Open вызовут дважды)
+
             ResourceManager.Instance.OnResourceChanged -= OnResourceChanged;
             ResourceManager.Instance.OnResourceChanged += OnResourceChanged;
         }
@@ -109,6 +117,7 @@ namespace KingdomsClone.UI
         private void UnsubscribeFromResources()
         {
             if (ResourceManager.Instance == null) return;
+
             ResourceManager.Instance.OnResourceChanged -= OnResourceChanged;
         }
 
@@ -116,19 +125,15 @@ namespace KingdomsClone.UI
         {
             if (!_isOpen || res == null) return;
 
-            if (_rowLabelsById.TryGetValue(res.Id, out var label) && label != null)
-            {
-                // ФИКС: инкрементальное обновление — только цифра, без пересборки
+            if (_rowLabelsById.TryGetValue(res.Id, out var label) && label != null) {
                 label.text = $"{res.DisplayName}: <b>{newAmt}</b>";
                 return;
             }
 
-            // Ресурс, о котором не знали (динамически добавлен в Runtime) —
-            // пересобираем весь список.
             RefreshResourceList();
         }
 
-        // ═══════════════════ ПОСТРОЕНИЕ ═══════════════════
+        // Построение
 
         private void BuildUI()
         {
@@ -146,6 +151,7 @@ namespace KingdomsClone.UI
 
             _dim = new GameObject("Dim", typeof(RectTransform), typeof(Image), typeof(Button));
             _dim.transform.SetParent(_canvas.transform, false);
+
             var dimRect = _dim.GetComponent<RectTransform>();
             dimRect.anchorMin = Vector2.zero;
             dimRect.anchorMax = Vector2.one;
@@ -159,6 +165,7 @@ namespace KingdomsClone.UI
 
             _panel = new GameObject("TradePanel", typeof(RectTransform), typeof(Image));
             _panel.transform.SetParent(_canvas.transform, false);
+
             var panelRect = _panel.GetComponent<RectTransform>();
             panelRect.anchorMin = new Vector2(0.5f, 0.5f);
             panelRect.anchorMax = new Vector2(0.5f, 0.5f);
@@ -176,6 +183,7 @@ namespace KingdomsClone.UI
         {
             var header = new GameObject("Header", typeof(RectTransform), typeof(Image));
             header.transform.SetParent(_panel.transform, false);
+
             var hRect = header.GetComponent<RectTransform>();
             hRect.anchorMin = new Vector2(0, 1);
             hRect.anchorMax = new Vector2(1, 1);
@@ -186,6 +194,7 @@ namespace KingdomsClone.UI
 
             var titleGo = new GameObject("Title", typeof(RectTransform), typeof(Text));
             titleGo.transform.SetParent(header.transform, false);
+
             var tRect = titleGo.GetComponent<RectTransform>();
             tRect.anchorMin = Vector2.zero;
             tRect.anchorMax = Vector2.one;
@@ -193,7 +202,7 @@ namespace KingdomsClone.UI
             tRect.offsetMax = new Vector2(-56, 0);
 
             var title = titleGo.GetComponent<Text>();
-            title.text = "💰 Торговля (недоступна)";
+            title.text = "Торговля (недоступна)";
             title.font = _font;
             title.fontSize = 22;
             title.fontStyle = FontStyle.Bold;
@@ -203,6 +212,7 @@ namespace KingdomsClone.UI
 
             var closeGo = new GameObject("Close", typeof(RectTransform), typeof(Image), typeof(Button));
             closeGo.transform.SetParent(header.transform, false);
+
             var cRect = closeGo.GetComponent<RectTransform>();
             cRect.anchorMin = new Vector2(1, 0.5f);
             cRect.anchorMax = new Vector2(1, 0.5f);
@@ -213,6 +223,7 @@ namespace KingdomsClone.UI
 
             var cTextGo = new GameObject("Label", typeof(RectTransform), typeof(Text));
             cTextGo.transform.SetParent(closeGo.transform, false);
+
             var ctRect = cTextGo.GetComponent<RectTransform>();
             ctRect.anchorMin = Vector2.zero;
             ctRect.anchorMax = Vector2.one;
@@ -233,6 +244,7 @@ namespace KingdomsClone.UI
         {
             var lblGo = new GameObject("ListLabel", typeof(RectTransform), typeof(Text));
             lblGo.transform.SetParent(_panel.transform, false);
+
             var lRect = lblGo.GetComponent<RectTransform>();
             lRect.anchorMin = new Vector2(0, 1);
             lRect.anchorMax = new Vector2(1, 1);
@@ -270,6 +282,7 @@ namespace KingdomsClone.UI
         {
             var sep = new GameObject("Separator", typeof(RectTransform), typeof(Image));
             sep.transform.SetParent(_panel.transform, false);
+
             var sRect = sep.GetComponent<RectTransform>();
             sRect.anchorMin = new Vector2(0, 0);
             sRect.anchorMax = new Vector2(1, 0);
@@ -280,6 +293,7 @@ namespace KingdomsClone.UI
 
             var infoGo = new GameObject("Info", typeof(RectTransform), typeof(Text));
             infoGo.transform.SetParent(_panel.transform, false);
+
             var iRect = infoGo.GetComponent<RectTransform>();
             iRect.anchorMin = new Vector2(0, 0);
             iRect.anchorMax = new Vector2(1, 0);
@@ -288,8 +302,7 @@ namespace KingdomsClone.UI
             iRect.anchoredPosition = new Vector2(16, 50);
 
             var info = infoGo.GetComponent<Text>();
-            info.text = "<b>Торговля будет доступна в ближайших версиях.</b>\n" +
-                        "Караваны, AI-королевства, репутация — всё в разработке.";
+            info.text = "<b>Торговля будет доступна в ближайших версиях.</b>\n" + "Караваны, AI-королевства, репутация — всё в разработке.";
             info.font = _font;
             info.fontSize = 14;
             info.color = new Color(0.65f, 0.7f, 0.8f);
@@ -300,6 +313,7 @@ namespace KingdomsClone.UI
 
             var btnRow = new GameObject("ButtonRow", typeof(RectTransform), typeof(HorizontalLayoutGroup));
             btnRow.transform.SetParent(_panel.transform, false);
+
             var bRect = btnRow.GetComponent<RectTransform>();
             bRect.anchorMin = new Vector2(0, 0);
             bRect.anchorMax = new Vector2(1, 0);
@@ -334,6 +348,7 @@ namespace KingdomsClone.UI
 
             var textGo = new GameObject("Label", typeof(RectTransform), typeof(Text));
             textGo.transform.SetParent(btnGo.transform, false);
+
             var tRect = textGo.GetComponent<RectTransform>();
             tRect.anchorMin = Vector2.zero;
             tRect.anchorMax = Vector2.one;
@@ -349,31 +364,29 @@ namespace KingdomsClone.UI
             text.raycastTarget = false;
         }
 
-        // ═══════════════════ ОБНОВЛЕНИЕ ═══════════════════
+        // Обновление
 
         private void RefreshResourceList()
         {
-            // ФИКС: чистим словарь одновременно с детьми — иначе после Destroy
-            // в словаре останутся ссылки на «мёртвые» Text, и следующее
-            // изменение ресурса попытается обновить null.
-            foreach (Transform child in _resourceListRect)
+            foreach (Transform child in _resourceListRect) {
                 Destroy(child.gameObject);
+            }
 
             _rowLabelsById.Clear();
 
             var rm = ResourceManager.Instance;
             var gd = GameDataSO.Instance;
+
             if (rm == null || gd == null) return;
 
             foreach (var res in gd.Resources)
             {
                 if (res == null) continue;
+
                 int amount = rm.GetAmount(res);
                 CreateResourceRow(res, amount);
             }
 
-            // ФИКС: форсируем layout, чтобы строки встали на место сразу,
-            // а не в конце кадра (см. ResourcePanelUI — та же проблема).
             LayoutRebuilder.ForceRebuildLayoutImmediate(_resourceListRect);
         }
 
@@ -390,6 +403,7 @@ namespace KingdomsClone.UI
 
             var iconGo = new GameObject("Icon", typeof(RectTransform), typeof(Image));
             iconGo.transform.SetParent(rowGo.transform, false);
+
             var iRect = iconGo.GetComponent<RectTransform>();
             iRect.anchorMin = new Vector2(0, 0.5f);
             iRect.anchorMax = new Vector2(0, 0.5f);
@@ -401,6 +415,7 @@ namespace KingdomsClone.UI
 
             var textGo = new GameObject("Label", typeof(RectTransform), typeof(Text));
             textGo.transform.SetParent(rowGo.transform, false);
+
             var tRect = textGo.GetComponent<RectTransform>();
             tRect.anchorMin = Vector2.zero;
             tRect.anchorMax = Vector2.one;
@@ -416,15 +431,21 @@ namespace KingdomsClone.UI
             text.raycastTarget = false;
             text.supportRichText = true;
 
-            // ФИКС: запоминаем Text по Id для инкрементального обновления
             _rowLabelsById[res.Id] = text;
         }
 
         private Font LoadFont()
         {
             var f = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (f == null) f = Resources.GetBuiltinResource<Font>("Arial.ttf");
-            if (f == null) f = Font.CreateDynamicFontFromOSFont("Arial", 16);
+
+            if (f == null) {
+                f = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            }
+            
+            if (f == null) {
+                f = Font.CreateDynamicFontFromOSFont("Arial", 16);
+            }
+
             return f;
         }
     }
