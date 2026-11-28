@@ -62,6 +62,7 @@ namespace KingdomsClone.Gameplay
         private BuildingBase _eatStorage;
         private bool _eatDone;
         private float _lastRecipeWarningTime = -10f;
+        private float _lastSeasonWarningTime = -10f;
         private float _lastDeadlyCheck = -10f;
         private float _cachedProductionMultiplier = 1f;
         private float _lastMultiplierCheck = -10f;
@@ -97,6 +98,7 @@ namespace KingdomsClone.Gameplay
             _eatStorage = null;
             _eatDone = false;
             _lastRecipeWarningTime = -10f;
+            _lastSeasonWarningTime = -10f;
             _cachedProductionMultiplier = 1f;
             _lastMultiplierCheck = -10f;
             CurrentJob = null;
@@ -739,6 +741,7 @@ namespace KingdomsClone.Gameplay
 
             bool hasRecipe = recipe != null && recipe.HasOutputs;
             bool hasLegacy = legacyRecipe != null && legacyRecipe.HasOutputs;
+
             if (!hasRecipe && !hasLegacy) return;
 
             float cycleTime = hasRecipe ? recipe.CycleSeconds : legacyRecipe.CycleSeconds;
@@ -753,11 +756,27 @@ namespace KingdomsClone.Gameplay
                     _lastRecipeWarningTime = Time.time;
                     Debug.LogError($"[Villager] {gameObject.name}: рецепт '{GetRecipeName(recipe, legacyRecipe)}' " + "некорректен (выход пуст/null/Amount<=0). Входы НЕ тратятся. Почини SO!");
                 }
+
                 _workCycleTimer = 0f;
+
                 return;
             }
 
-            _workCycleTimer += Time.deltaTime * GetProductionMultiplier();
+            float seasonMultiplier = CurrentJob.Workplace.GetProductionMultiplier();
+
+            if (seasonMultiplier <= 0.001f) {
+                if (Time.time - _lastSeasonWarningTime > 5f) {
+                    _lastSeasonWarningTime = Time.time;
+                    var season = TimeManager.Instance?.CurrentSeason ?? Season.Spring;
+                    Debug.Log($"[Villager] {gameObject.name}: {CurrentJob.Workplace.Data.DisplayName} " + $"не производит ({season} — зимовка). Ждём смену сезона.");
+                }
+
+                _workCycleTimer = 0f;
+
+                return;
+            }
+
+            _workCycleTimer += Time.deltaTime * GetProductionMultiplier() * seasonMultiplier;
 
             if (_workCycleTimer < Mathf.Max(0.5f, cycleTime)) return;
 

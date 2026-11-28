@@ -50,6 +50,24 @@ namespace KingdomsClone.Data
         [SerializeField, Range(-10, 10)] private int happinessBonus = 0;
         [SerializeField, Min(0f)] private float happinessRadius = 0f;
 
+        [Header("Season Modifiers")]
+        [Tooltip("Множитель производства зимой. 0 = зимой не работает (ферма). " + "1 = работает всегда (лесоруб, рудник, кузница). " + "0.5 = зимний рыбак (половина улова). Значения из G.5.1.")]
+        [SerializeField, Range(0f, 1f)] private float winterProductionMultiplier = 1f;
+
+        [Header("Winter Heating")]
+        [Tooltip("Что жгут зимой. null = дом не отапливается (не теряет счастье, но и не греет). " + "Сейчас: Resource_Wood. Потом: Resource_Coal (когда появится).")]
+        [SerializeField] private ResourceDataSO winterFuelResource;
+
+        [Tooltip("Сколько топлива на 1 жителя в день зимой. 0 = не тратит. " + "Пример: дом на 4 жителя, значение 0.5 → 2 дрова/день. Значения из G.5.2.")]
+        [SerializeField, Min(0f)] private float winterFuelPerResidentPerDay = 0f;
+
+        public ResourceDataSO WinterFuelResource => winterFuelResource;
+        public float WinterFuelPerResidentPerDay => winterFuelPerResidentPerDay;
+
+        public bool RequiresWinterHeating => winterFuelResource != null && winterFuelPerResidentPerDay > 0.001f;
+
+        public float WinterProductionMultiplier => winterProductionMultiplier;
+
         // ГЕТТЕРЫ
 
         public GameObject Prefab => prefab;
@@ -121,6 +139,10 @@ namespace KingdomsClone.Data
                         }
                     }
                 }
+
+                winterFuelPerResidentPerDay = Mathf.Max(0f, winterFuelPerResidentPerDay); 
+
+                winterProductionMultiplier = Mathf.Clamp01(winterProductionMultiplier);
             }
         #endif
     }

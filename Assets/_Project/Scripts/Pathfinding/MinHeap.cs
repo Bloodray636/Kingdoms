@@ -2,10 +2,6 @@ using System.Collections.Generic;
 
 namespace KingdomsClone.Pathfinding
 {
-    /// <summary>
-    /// Min-куча по F-score для A*. Классическая бинарная куча на массиве.
-    /// Сложность: Push/Pop = O(log n), Peek = O(1).
-    /// </summary>
     public class MinHeap
     {
         private readonly List<PathNode> _items = new();
@@ -17,11 +13,14 @@ namespace KingdomsClone.Pathfinding
         {
             _items.Add(node);
             int i = _items.Count - 1;
-            while (i > 0)
-            {
+
+            while (i > 0) {
                 int parent = (i - 1) / 2;
+
                 if (_items[parent].F <= _items[i].F) break;
+
                 (_items[parent], _items[i]) = (_items[i], _items[parent]);
+
                 i = parent;
             }
         }
@@ -35,8 +34,8 @@ namespace KingdomsClone.Pathfinding
 
             int i = 0;
             int n = _items.Count;
-            while (true)
-            {
+
+            while (true) {
                 int l = 2 * i + 1;
                 int r = 2 * i + 2;
                 int smallest = i;
@@ -48,6 +47,7 @@ namespace KingdomsClone.Pathfinding
                 (_items[smallest], _items[i]) = (_items[i], _items[smallest]);
                 i = smallest;
             }
+            
             return top;
         }
     }

@@ -36,6 +36,44 @@ namespace KingdomsClone.Gameplay
         private List<Job> _jobs = new List<Job>();
         public IReadOnlyList<Job> GetJobs() => _jobs;
 
+        public float GetProductionMultiplier()
+        {
+            if (Data == null) return 1f;
+
+            var tm = TimeManager.Instance;
+
+            if (tm == null) return 1f;
+
+            return tm.CurrentSeason == Season.Winter ? Data.WinterProductionMultiplier : 1f;
+        }
+
+        public bool IsProductionActiveNow() => GetProductionMultiplier() > 0.001f;
+
+        public bool TryConsumeWinterFuel()
+        {
+            if (Data == null) return true;
+            if (!Data.IsHousing) return true;
+            if (!Data.RequiresWinterHeating) return true;
+
+            var tm = TimeManager.Instance;
+
+            if (tm == null || tm.CurrentSeason != Season.Winter) return true;
+
+            int residents = Residents;
+            if (residents <= 0) return true;
+
+            float rawNeed = residents * Data.WinterFuelPerResidentPerDay;
+            int needed = Mathf.CeilToInt(rawNeed);
+
+            if (needed <= 0) return true;
+
+            var rm = ResourceManager.Instance;
+            
+            if (rm == null) return false;
+
+            return rm.SpendSingle(Data.WinterFuelResource, needed);
+        }
+
         public void Initialize(BuildingDataSO data, Vector2Int anchor, Quaternion rotation)
         {
             if (data == null) { 

@@ -23,6 +23,7 @@ namespace KingdomsClone.Core
         private float _speed = 1f;
         private float _debugSpeedMultiplier = 1f;
         private int _lastDay = 1;
+        private Season _lastSeason = Season.Spring; 
         private bool _isPaused = true;
         private float _lastBacklogWarningTime = -10f;
 
@@ -35,6 +36,19 @@ namespace KingdomsClone.Core
 
         public int Year => ((CurrentDay - 1) / (DaysPerSeason * 4)) + 1;
         public Season CurrentSeason => (Season)(((CurrentDay - 1) / DaysPerSeason) % 4);
+
+        public int DayInSeason => ((CurrentDay - 1) % DaysPerSeason) + 1;
+
+        public float SeasonProgress => DaysPerSeason > 1 ? (float)(DayInSeason - 1) / (DaysPerSeason - 1) : 0f;
+
+        public static string GetSeasonNameRu(Season s) => s switch
+        {
+            Season.Spring => "Весна",
+            Season.Summer => "Лето",
+            Season.Autumn => "Осень",
+            Season.Winter => "Зима",
+            _ => s.ToString()
+        };
 
         private void Awake()
         {
@@ -119,12 +133,30 @@ namespace KingdomsClone.Core
 
         private void PublishDayChanged(int day)
         {
+            int year = ((day - 1) / (DaysPerSeason * 4)) + 1;
+            Season season = (Season)(((day - 1) / DaysPerSeason) % 4);
+
             EventBus.Publish(new DayChangedEvent
             {
                 NewDay = day,
-                Year = ((day - 1) / (DaysPerSeason * 4)) + 1,
-                Season = (Season)(((day - 1) / DaysPerSeason) % 4)
+                Year = year,
+                Season = season
             });
+
+            if (season != _lastSeason)
+            {
+                var oldSeason = _lastSeason;
+                _lastSeason = season;
+
+                EventBus.Publish(new SeasonChangedEvent
+                {
+                    OldSeason = oldSeason,
+                    NewSeason = season,
+                    Year = year
+                });
+
+                Debug.Log($"[TimeManager] Сезон: {oldSeason} → {season} (Год {year}, День {day})");
+            }
         }
 
         public void SetSpeed(float newSpeed)

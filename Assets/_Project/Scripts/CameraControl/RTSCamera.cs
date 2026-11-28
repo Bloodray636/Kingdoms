@@ -16,7 +16,8 @@ namespace KingdomsClone.CameraControl
         [SerializeField] private float edgePanZonePixels = 15f;
         [SerializeField] private bool edgePanEnabled = true;
         [SerializeField] private float panSmoothTime = 0.15f;
-        [Tooltip("0 = пивот зажат строго в [min,max], 1 = видимый край камеры совпадает с краем карты. " + "0.85 = можно чуть заглянуть за край (как в K&C).")]
+
+        [Tooltip("0 = пивот зажат строго в [min,max], 1 = видимый край камеры совпадает с краем карты.")]
         [SerializeField, Range(0f, 1.5f)] private float boundsPadding = 0.85f;
 
         [Header("Zoom")]
@@ -28,10 +29,14 @@ namespace KingdomsClone.CameraControl
         [SerializeField] private float scrollSensitivity = 0.05f;
         [SerializeField] private float zoomSmoothTime = 0.15f;
 
+        [Header("Rotation (Q/E)")]
+        [Tooltip("Скорость поворота в градусах/сек. 90 = 4 сек на полный оборот.")]
+        [SerializeField] private float rotationSpeed = 90f;
+        [Tooltip("Сглаживание поворота.")]
+        [SerializeField] private float rotationSmoothTime = 0.15f;
+
         [Header("Orthographic Size (если камера ortho)")]
-        [Tooltip("orthographicSize при zoom=0 (близко).")]
         [SerializeField] private float orthographicMinSize = 5f;
-        [Tooltip("orthographicSize при zoom=1 (далеко).")]
         [SerializeField] private float orthographicMaxSize = 40f;
 
         [Header("Map Bounds (XZ) — автозаполняется из GridSystem")]
@@ -44,6 +49,9 @@ namespace KingdomsClone.CameraControl
         private float _currentZoom;
         private float _targetZoom;
         private float _zoomVelocity;
+        private float _currentYaw;
+        private float _targetYaw;
+        private float _yawVelocity;
 
         private void OnEnable()
         {
@@ -58,10 +66,10 @@ namespace KingdomsClone.CameraControl
         private void Start()
         {
             _currentZoom = _targetZoom = Mathf.Clamp01(initialZoom);
+            _currentYaw = _targetYaw = 0f;
 
             if (GridSystem.Instance != null && GridSystem.Instance.Grid != null) {
                 var g = GridSystem.Instance;
-
                 Vector3 origin = g.OriginPosition;
 
                 SetBounds(
@@ -83,6 +91,7 @@ namespace KingdomsClone.CameraControl
         private void Update()
         {
             HandlePanInput();
+            HandleRotationInput();
             HandleZoomInput();
             ClampPivot();
             SmoothStep();
@@ -99,21 +108,10 @@ namespace KingdomsClone.CameraControl
             var kb = Keyboard.current;
 
             if (kb != null && !inputBlockedByUI) {
-                if (kb.wKey.isPressed || kb.upArrowKey.isPressed) {
-                    input.y += 1f;
-                }
-
-                if (kb.sKey.isPressed || kb.downArrowKey.isPressed) {
-                    input.y -= 1f;
-                }
-
-                if (kb.dKey.isPressed || kb.rightArrowKey.isPressed) {
-                    input.x += 1f;
-                }
-
-                if (kb.aKey.isPressed || kb.leftArrowKey.isPressed) {
-                    input.x -= 1f;
-                }
+                if (kb.wKey.isPressed || kb.upArrowKey.isPressed) input.y += 1f;
+                if (kb.sKey.isPressed || kb.downArrowKey.isPressed) input.y -= 1f;
+                if (kb.dKey.isPressed || kb.rightArrowKey.isPressed) input.x += 1f;
+                if (kb.aKey.isPressed || kb.leftArrowKey.isPressed) input.x -= 1f;
 
                 fast = kb.leftShiftKey.isPressed || kb.rightShiftKey.isPressed;
             }
@@ -126,21 +124,21 @@ namespace KingdomsClone.CameraControl
 
                     if (!overUI) {
                         Vector2 mp = mouse.position.ReadValue();
-
+                        
                         if (mp.x >= 0 && mp.x <= Screen.width && mp.y >= 0 && mp.y <= Screen.height) {
-                            if (mp.x < edgePanZonePixels) {
+                            if (mp.x < edgePanZonePixels) { 
                                 input.x -= 1f;
                             }
 
-                            if (mp.x > Screen.width - edgePanZonePixels) {
+                            if (mp.x > Screen.width - edgePanZonePixels) { 
                                 input.x += 1f;
                             }
 
-                            if (mp.y < edgePanZonePixels) {
+                            if (mp.y < edgePanZonePixels) { 
                                 input.y -= 1f;
                             }
 
-                            if (mp.y > Screen.height - edgePanZonePixels) {
+                            if (mp.y > Screen.height - edgePanZonePixels) { 
                                 input.y += 1f;
                             }
                         }
@@ -148,11 +146,11 @@ namespace KingdomsClone.CameraControl
                 }
             }
 
-            if (input.sqrMagnitude > 0f) {
+            if (input.sqrMagnitude > 0f)
+            {
                 input = Vector2.ClampMagnitude(input, 1f);
 
-                float yaw = transform.eulerAngles.y;
-                Quaternion yawRotation = Quaternion.Euler(0f, yaw, 0f);
+                Quaternion yawRotation = Quaternion.Euler(0f, _currentYaw, 0f);
                 Vector3 forward = yawRotation * Vector3.forward;
                 Vector3 right = yawRotation * Vector3.right;
                 Vector3 worldDir = forward * input.y + right * input.x;
@@ -161,6 +159,29 @@ namespace KingdomsClone.CameraControl
                 float speed = panSpeed * zoomSpeedMul * (fast ? fastPanMultiplier : 1f);
 
                 _targetPivot += worldDir * speed * Time.unscaledDeltaTime;
+            }
+        }
+
+        private void HandleRotationInput()
+        {
+            var kb = Keyboard.current;
+
+            if (kb == null) return;
+            if (GUIUtility.keyboardControl != 0) return;
+
+            float input = 0f;
+
+            if (kb.qKey.isPressed) {
+                input -= 1f;
+            }
+
+            if (kb.eKey.isPressed) {
+                input += 1f;
+            }
+            
+            if (Mathf.Abs(input) > 0.01f) {
+                _targetYaw += input * rotationSpeed * Time.unscaledDeltaTime;
+                _targetYaw = Mathf.Repeat(_targetYaw, 360f);
             }
         }
 
@@ -202,7 +223,6 @@ namespace KingdomsClone.CameraControl
                 groundHalfZ = halfVertical / Mathf.Max(0.1f, Mathf.Sin(pitchRad));
                 groundHalfX = halfVertical * cam.aspect;
             } else {
-                // Перспектива
                 float distance = Mathf.Lerp(minDistance, maxDistance, _targetZoom);
                 float halfFovRad = cam.fieldOfView * 0.5f * Mathf.Deg2Rad;
 
@@ -214,14 +234,25 @@ namespace KingdomsClone.CameraControl
             groundHalfX *= boundsPadding;
             groundHalfZ *= boundsPadding;
 
-            float minX = mapMin.x + groundHalfX;
-            float maxX = mapMax.x - groundHalfX;
-            float minZ = mapMin.y + groundHalfZ;
-            float maxZ = mapMax.y - groundHalfZ;
+            float yawRad = _targetYaw * Mathf.Deg2Rad;
+            float cosYaw = Mathf.Abs(Mathf.Cos(yawRad));
+            float sinYaw = Mathf.Abs(Mathf.Sin(yawRad));
 
-            // Если карта меньше видимой области
-            if (minX > maxX) minX = maxX = (mapMin.x + mapMax.x) * 0.5f;
-            if (minZ > maxZ) minZ = maxZ = (mapMin.y + mapMax.y) * 0.5f;
+            float aabbHalfX = groundHalfX * cosYaw + groundHalfZ * sinYaw;
+            float aabbHalfZ = groundHalfX * sinYaw + groundHalfZ * cosYaw;
+
+            float minX = mapMin.x + aabbHalfX;
+            float maxX = mapMax.x - aabbHalfX;
+            float minZ = mapMin.y + aabbHalfZ;
+            float maxZ = mapMax.y - aabbHalfZ;
+
+            if (minX > maxX) {
+                minX = maxX = (mapMin.x + mapMax.x) * 0.5f;
+            }
+
+            if (minZ > maxZ) {
+                minZ = maxZ = (mapMin.y + mapMax.y) * 0.5f;
+            }
 
             _targetPivot.x = Mathf.Clamp(_targetPivot.x, minX, maxX);
             _targetPivot.z = Mathf.Clamp(_targetPivot.z, minZ, maxZ);
@@ -231,12 +262,13 @@ namespace KingdomsClone.CameraControl
         {
             _currentPivot = Vector3.SmoothDamp(_currentPivot, _targetPivot, ref _pivotVelocity, panSmoothTime, Mathf.Infinity, Time.unscaledDeltaTime);
             _currentZoom = Mathf.SmoothDamp(_currentZoom, _targetZoom, ref _zoomVelocity, zoomSmoothTime, Mathf.Infinity, Time.unscaledDeltaTime);
+            _currentYaw = Mathf.SmoothDampAngle(_currentYaw, _targetYaw, ref _yawVelocity, rotationSmoothTime, Mathf.Infinity, Time.unscaledDeltaTime);
         }
 
         private void ApplyTransform()
         {
             float pitch = Mathf.Lerp(minPitch, maxPitch, _currentZoom);
-            Quaternion rotation = Quaternion.Euler(pitch, 0f, 0f);
+            Quaternion rotation = Quaternion.Euler(pitch, _currentYaw, 0f);
 
             var cam = GetComponent<Camera>();
 
@@ -258,7 +290,7 @@ namespace KingdomsClone.CameraControl
             _pivotVelocity = Vector3.zero;
             ClampPivot();
             ApplyTransform();
-            Debug.Log($"[RTSCamera] Teleported to {_targetPivot}");
+            Debug.Log($"[RTSCamera] Teleported to {_targetPivot} (yaw={_currentYaw:F1})");
         }
 
         private void SetBounds(Vector2 min, Vector2 max)
@@ -271,6 +303,7 @@ namespace KingdomsClone.CameraControl
         {
             SetBounds(
                 new Vector2(e.OriginWorldPosition.x, e.OriginWorldPosition.z),
+
                 new Vector2(
                     e.OriginWorldPosition.x + e.Width * e.CellSize,
                     e.OriginWorldPosition.z + e.Height * e.CellSize
@@ -285,6 +318,9 @@ namespace KingdomsClone.CameraControl
 
             _currentPivot = _targetPivot = startWorld;
             _pivotVelocity = Vector3.zero;
+
+            _currentYaw = _targetYaw = 0f;
+            _yawVelocity = 0f;
 
             ClampPivot();
             ApplyTransform();

@@ -29,8 +29,8 @@ namespace KingdomsClone.Pathfinding
 
         private static readonly Vector2Int[] Dirs =
         {
-            new( 1,  0), new(-1,  0), new( 0,  1), new( 0, -1),
-            new( 1,  1), new( 1, -1), new(-1,  1), new(-1, -1),
+            new( 1, 0), new(-1, 0), new( 0, 1), new( 0, -1),
+            new( 1, 1), new( 1, -1), new(-1, 1), new(-1, -1),
         };
 
         private List<Vector2Int> _lastPath;
@@ -41,7 +41,11 @@ namespace KingdomsClone.Pathfinding
 
         private void Awake()
         {
-            if (Instance != null && Instance != this) { Destroy(gameObject); return; }
+            if (Instance != null && Instance != this) { 
+                Destroy(gameObject); 
+                return; 
+            }
+
             Instance = this;
             DontDestroyOnLoad(gameObject);
         }
@@ -58,23 +62,23 @@ namespace KingdomsClone.Pathfinding
             EventBus.Unsubscribe<PathInvalidationEvent>(OnGranularInvalidation);
         }
 
-        private void OnDestroy() { if (Instance == this) Instance = null; }
-
-        // ============ ИНВАЛИДАЦИЯ ============
+        private void OnDestroy() { 
+            if (Instance == this) Instance = null; 
+        }
 
         private void OnFullInvalidation(PathCacheClearEvent e)
         {
             int before = _cache.Count;
             _cache.Clear();
-            if (before > 0)
+
+            if (before > 0) {
                 Debug.Log($"[Pathfinding] Кэш ПОЛНОСТЬЮ очищен (было {before} путей)");
+            }
         }
 
         private void OnGranularInvalidation(PathInvalidationEvent e)
         {
-            // null / пустой = полная очистка (на всякий случай, если кто-то так решил)
-            if (e.Cells == null || e.Cells.Count == 0)
-            {
+            if (e.Cells == null || e.Cells.Count == 0) {
                 OnFullInvalidation(default);
                 return;
             }
@@ -82,14 +86,11 @@ namespace KingdomsClone.Pathfinding
             var affected = new HashSet<Vector2Int>(e.Cells);
             var toRemove = new List<(Vector2Int, Vector2Int)>();
 
-            // TODO (Epic 15): для 5000+ путей это O(N×M) — заменить на reverse index cell → keys.
-            foreach (var kvp in _cache)
-            {
+            foreach (var kvp in _cache) {
                 var path = kvp.Value;
-                for (int i = 0; i < path.Count; i++)
-                {
-                    if (affected.Contains(path[i]))
-                    {
+
+                for (int i = 0; i < path.Count; i++) {
+                    if (affected.Contains(path[i])) {
                         toRemove.Add(kvp.Key);
                         break;
                     }
@@ -98,11 +99,10 @@ namespace KingdomsClone.Pathfinding
 
             foreach (var key in toRemove) _cache.Remove(key);
 
-            if (toRemove.Count > 0)
+            if (toRemove.Count > 0) {
                 Debug.Log($"[Pathfinding] Инвалидировано {toRemove.Count} путей (задето {e.Cells.Count} клеток)");
+            }
         }
-
-        // ============ ПОИСК ПУТИ ============
 
         public List<Vector2Int> FindPath(Vector2Int start, Vector2Int goal)
         {
@@ -112,18 +112,21 @@ namespace KingdomsClone.Pathfinding
 
             var startCell = grid.GetCell(start.x, start.y);
             var goalCell = grid.GetCell(goal.x, goal.y);
+
             if (startCell == null || goalCell == null) return null;
             if (!startCell.IsTraversable() || !goalCell.IsTraversable()) return null;
 
-            if (start == goal) return new List<Vector2Int> { start };
+            if (start == goal) return new List<Vector2Int> { 
+                start 
+            };
 
             var key = (start, goal);
+
             if (_cache.TryGetValue(key, out var cached)) return cached;
 
             var path = AStar(grid, start, goal);
 
-            if (path != null)
-            {
+            if (path != null) {
                 if (_cache.Count >= maxCacheSize) _cache.Clear();
                 _cache[key] = path;
             }
@@ -146,10 +149,8 @@ namespace KingdomsClone.Pathfinding
 
             int iterations = 0;
 
-            while (_open.Count > 0)
-            {
-                if (++iterations > maxIterations)
-                {
+            while (_open.Count > 0) {
+                if (++iterations > maxIterations) {
                     Debug.LogError($"[Pathfinding] Лимит {maxIterations} итераций для {start}→{goal}");
                     sw.Stop();
                     _lastSearchMs = (float)sw.Elapsed.TotalMilliseconds;
@@ -161,8 +162,7 @@ namespace KingdomsClone.Pathfinding
                 if (_closed.Contains(current.Pos)) continue;
                 if (_gScore.TryGetValue(current.Pos, out var bestG) && current.G > bestG + 0.0001f) continue;
 
-                if (current.Pos == goal)
-                {
+                if (current.Pos == goal) {
                     sw.Stop();
                     _lastSearchMs = (float)sw.Elapsed.TotalMilliseconds;
                     return ReconstructPath(start, goal);
@@ -170,8 +170,7 @@ namespace KingdomsClone.Pathfinding
 
                 _closed.Add(current.Pos);
 
-                for (int i = 0; i < Dirs.Length; i++)
-                {
+                for (int i = 0; i < Dirs.Length; i++) {
                     var dir = Dirs[i];
                     var neighbor = current.Pos + dir;
 
@@ -179,15 +178,15 @@ namespace KingdomsClone.Pathfinding
                     if (_closed.Contains(neighbor)) continue;
 
                     var nc = grid.GetCell(neighbor.x, neighbor.y);
-                    // ФИКС: IsTraversable вместо IsWalkable — здания блокируют путь
+
                     if (nc == null || !nc.IsTraversable()) continue;
 
                     bool isDiag = dir.x != 0 && dir.y != 0;
 
-                    if (isDiag)
-                    {
+                    if (isDiag) {
                         var n1 = grid.GetCell(current.Pos.x + dir.x, current.Pos.y);
                         var n2 = grid.GetCell(current.Pos.x, current.Pos.y + dir.y);
+
                         if (n1 == null || !n1.IsTraversable()) continue;
                         if (n2 == null || !n2.IsTraversable()) continue;
                     }
@@ -222,34 +221,35 @@ namespace KingdomsClone.Pathfinding
             var path = new List<Vector2Int>();
             var current = goal;
             path.Add(current);
-            while (current != start)
-            {
+
+            while (current != start) {
                 if (!_cameFrom.TryGetValue(current, out var parent)) break;
+
                 current = parent;
                 path.Add(current);
             }
+
             path.Reverse();
             return path;
         }
 
         public void SetDrawAllCachedPaths(bool on) => drawAllCachedPaths = on;
 
-        // ============ ВИЗУАЛИЗАЦИЯ ============
+        // Визуализация
 
         private void OnDrawGizmos()
         {
             var grid = GridSystem.Instance;
             if (grid == null) return;
 
-            // Все кэшированные пути — тёмно-серые (если включено)
-            if (drawAllCachedPaths && _cache.Count > 0)
-            {
+            // Все кэшированные пути — тёмно-серые
+            if (drawAllCachedPaths && _cache.Count > 0) {
                 Gizmos.color = new Color(0.4f, 0.4f, 0.4f, 0.5f);
-                foreach (var kvp in _cache)
-                {
+
+                foreach (var kvp in _cache) {
                     var path = kvp.Value;
-                    for (int i = 0; i < path.Count - 1; i++)
-                    {
+
+                    for (int i = 0; i < path.Count - 1; i++) {
                         Vector3 a = grid.CellToWorld(path[i].x, path[i].y);
                         Vector3 b = grid.CellToWorld(path[i + 1].x, path[i + 1].y);
                         a.y = b.y = grid.GetSurfaceY(path[i].x, path[i].y) + 1.2f;
@@ -262,8 +262,7 @@ namespace KingdomsClone.Pathfinding
             if (_lastPath != null && _lastPath.Count > 1)
             {
                 Gizmos.color = Color.yellow;
-                for (int i = 0; i < _lastPath.Count - 1; i++)
-                {
+                for (int i = 0; i < _lastPath.Count - 1; i++) {
                     Vector3 a = grid.CellToWorld(_lastPath[i].x, _lastPath[i].y);
                     Vector3 b = grid.CellToWorld(_lastPath[i + 1].x, _lastPath[i + 1].y);
                     a.y = b.y = grid.GetSurfaceY(_lastPath[i].x, _lastPath[i].y) + 1.5f;

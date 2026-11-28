@@ -12,7 +12,6 @@ namespace KingdomsClone.Core
         public static ResourceManager Instance { get; private set; }
 
         [Header("Settings")]
-
         [Tooltip("Включать только осознанно.")]
         [SerializeField] private bool respectMaxStack = false;
 
@@ -23,11 +22,7 @@ namespace KingdomsClone.Core
 
         private void Awake()
         {
-            if (Instance != null && Instance != this) { 
-                Destroy(gameObject); 
-                return; 
-            }
-
+            if (Instance != null && Instance != this) { Destroy(gameObject); return; }
             Instance = this;
             DontDestroyOnLoad(gameObject);
 
@@ -41,11 +36,7 @@ namespace KingdomsClone.Core
             }
         }
 
-        private void OnDestroy() { 
-            if (Instance == this) {
-                Instance = null;
-            } 
-        }
+        private void OnDestroy() { if (Instance == this) Instance = null; }
 
         public int GetAmount(ResourceDataSO resource)
         {
@@ -57,12 +48,11 @@ namespace KingdomsClone.Core
         {
             var list = new List<(ResourceDataSO, int)>();
             var data = GameDataSO.Instance;
-
             if (data == null) return list;
 
-            foreach (var res in data.Resources) {
+            foreach (var res in data.Resources)
+            {
                 if (res == null) continue;
-
                 int amount = _resources.TryGetValue(res.Id, out var amt) ? amt : 0;
                 list.Add((res, amount));
             }
@@ -77,7 +67,7 @@ namespace KingdomsClone.Core
             if (!respectMaxStack || resource.MaxStack <= 0) {
                 return int.MaxValue - GetAmount(resource);
             }
-
+            
             return Mathf.Max(0, resource.MaxStack - GetAmount(resource));
         }
 
@@ -95,7 +85,7 @@ namespace KingdomsClone.Core
             }
 
             if (amount < 0) {
-                Debug.LogError($"[ResourceManager] AddResource с отрицательным amount ({amount}) для '{resource.Id}'. " + "Используй SpendResources() для списания.");
+                Debug.LogError($"[ResourceManager] AddResource с отрицательным amount ({amount}) для '{resource.Id}'.");
                 return 0;
             }
 
@@ -107,16 +97,15 @@ namespace KingdomsClone.Core
 
             int oldAmount = _resources[resource.Id];
             long newAmountLong = (long)oldAmount + amount;
-            int newAmount = (int)Mathf.Min(newAmountLong, int.MaxValue);
+
+            int newAmount = newAmountLong > int.MaxValue ? int.MaxValue : (int)newAmountLong;
 
             if (respectMaxStack && resource.MaxStack > 0) {
                 int capped = Mathf.Min(newAmount, resource.MaxStack);
                 int lost = newAmount - capped;
 
                 if (lost > 0) {
-                    Debug.LogWarning($"[ResourceManager] '{resource.Id}': потеряно {lost} " +
-                        $"при добавлении (MaxStack={resource.MaxStack}, было {oldAmount}, " +
-                        $"пытались +{amount}). Включи respectMaxStack = false, если это не задумано.");
+                    Debug.LogWarning($"[ResourceManager] '{resource.Id}': потеряно {lost} (MaxStack={resource.MaxStack}).");
                     newAmount = capped;
                 }
             }
@@ -131,7 +120,7 @@ namespace KingdomsClone.Core
         public int AddAllResources(int amount)
         {
             if (amount < 0) {
-                Debug.LogError($"[ResourceManager] AddAllResources с отрицательным amount ({amount}). Проигнорировано.");
+                Debug.LogError($"[ResourceManager] AddAllResources с отрицательным amount ({amount}).");
                 return 0;
             }
 
@@ -144,7 +133,7 @@ namespace KingdomsClone.Core
             foreach (var res in data.Resources) {
                 total += AddResource(res, amount);
             }
-            
+
             return total;
         }
 
@@ -155,7 +144,7 @@ namespace KingdomsClone.Core
             int oldAmount = GetAmount(resource);
 
             if (oldAmount < amount) {
-                OnResourceSpendFailed?.Invoke(resource, amount, oldAmount);
+                PublishSpendFailed(resource, amount, oldAmount);
                 return false;
             }
 
@@ -173,7 +162,10 @@ namespace KingdomsClone.Core
 
             foreach (var kvp in aggregated) {
                 int have = _resources.TryGetValue(kvp.Key, out var amt) ? amt : 0;
-                if (have < kvp.Value.amount) return false;
+
+                if (have < kvp.Value.amount) {
+                    return false;
+                }
             }
 
             return true;
@@ -195,11 +187,12 @@ namespace KingdomsClone.Core
 
                 if (have < kvp.Value.amount) {
                     Debug.LogWarning($"[ResourceManager] SpendResources: не хватает '{kvp.Key}' " + $"(нужно {kvp.Value.amount}, есть {have})");
-                    OnResourceSpendFailed?.Invoke(kvp.Value.resource, kvp.Value.amount, have);
+                    PublishSpendFailed(kvp.Value.resource, kvp.Value.amount, have);
                     return false;
                 }
             }
 
+            // Атомарное списание
             var oldAmounts = new Dictionary<string, int>(aggregated.Count);
 
             foreach (var kvp in aggregated) {
@@ -216,35 +209,58 @@ namespace KingdomsClone.Core
 
         private void PublishChange(ResourceDataSO resource, int oldAmount, int newAmount)
         {
-            OnResourceChanged?.Invoke(resource, oldAmount, newAmount);
+            var handlers = OnResourceChanged;
 
-            EventBus.Publish(new ResourceChangedEvent
-            {
+            if (handlers != null) {
+                foreach (Action<ResourceDataSO, int, int> h in handlers.GetInvocationList()) {
+                    try { 
+                        h(resource, oldAmount, newAmount); 
+                    } catch (Exception ex) {
+                        Debug.LogError($"[ResourceManager] OnResourceChanged handler '{h.Target?.GetType().Name}.{h.Method.Name}' " + $"для '{resource?.Id}' ({oldAmount}→{newAmount}) бросил исключение: {ex}");
+                    }
+                }
+            }
+
+            EventBus.Publish(new ResourceChangedEvent {
                 Resource = resource,
                 OldAmount = oldAmount,
                 NewAmount = newAmount
             });
         }
 
+        private void PublishSpendFailed(ResourceDataSO resource, int needed, int have)
+        {
+            var handlers = OnResourceSpendFailed;
+
+            if (handlers != null) {
+                foreach (Action<ResourceDataSO, int, int> h in handlers.GetInvocationList()) {
+                    try { 
+                        h(resource, needed, have); 
+                    } catch (Exception ex) {
+                        Debug.LogError($"[ResourceManager] OnResourceSpendFailed handler '{h.Target?.GetType().Name}.{h.Method.Name}' " + $"для '{resource?.Id}' бросил исключение: {ex}");
+                    }
+                }
+            }
+        }
+
         private Dictionary<string, (ResourceDataSO resource, int amount)> AggregateCost(IReadOnlyList<ResourceAmount> cost)
         {
             var result = new Dictionary<string, (ResourceDataSO resource, int amount)>();
-
             if (cost == null) return result;
 
             foreach (var ra in cost) {
                 if (ra == null) {
-                    Debug.LogError("[ResourceManager] Cost содержит null ResourceAmount.");
+                    Debug.LogError("Cost содержит null ResourceAmount.");
                     return null;
                 }
 
                 if (ra.Resource == null) {
-                    Debug.LogError("[ResourceManager] Cost содержит ResourceAmount с null Resource.");
+                    Debug.LogError("Cost содержит ResourceAmount с null Resource.");
                     return null;
                 }
 
                 if (ra.Amount < 0) {
-                    Debug.LogError($"[ResourceManager] Отрицательный amount ({ra.Amount}) для '{ra.Resource.Id}' — ЗАПРЕЩЕНО.");
+                    Debug.LogError($"Отрицательный amount ({ra.Amount}) для '{ra.Resource.Id}' — ЗАПРЕЩЕНО.");
                     return null;
                 }
 
@@ -253,7 +269,7 @@ namespace KingdomsClone.Core
                 string id = ra.Resource.Id;
 
                 if (string.IsNullOrEmpty(id)) {
-                    Debug.LogError($"[ResourceManager] Resource '{ra.Resource.name}' имеет пустой Id — стоимость невалидна.");
+                    Debug.LogError($"Resource '{ra.Resource.name}' имеет пустой Id — стоимость невалидна.");
                     return null;
                 }
 

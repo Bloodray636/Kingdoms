@@ -38,3 +38,4 @@ MonoBehaviour:
     cycleSeconds: 15
   happinessBonus: 0
   happinessRadius: 0
+  winterProductionMultiplier: 0

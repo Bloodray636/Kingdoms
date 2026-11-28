@@ -17,4 +17,11 @@ namespace KingdomsClone.Core.Events
         public float OldSpeed;
         public float NewSpeed;
     }
+
+    public struct SeasonChangedEvent
+    {
+        public Season OldSeason;
+        public Season NewSeason;
+        public int Year;
+    }
 }

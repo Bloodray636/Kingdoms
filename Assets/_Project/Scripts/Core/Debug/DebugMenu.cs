@@ -47,7 +47,8 @@ namespace KingdomsClone.Core.DebugTools
             float winW = 400f;
             float winH = Mathf.Min(900f, Screen.height - 20f);
             Rect box = new Rect(10, 10, winW, winH);
-            GUI.Box(box, "🛠️ DEBUG MENU (`)");
+
+            GUI.Box(box, "DEBUG MENU (`)");
 
             GUILayout.BeginArea(new Rect(box.x + 10, box.y + 30, winW - 20, winH - 40));
             _scrollPos = GUILayout.BeginScrollView(_scrollPos);
@@ -77,6 +78,9 @@ namespace KingdomsClone.Core.DebugTools
             GUILayout.Space(10);
 
             DrawTaxSection();           
+            GUILayout.Space(10);
+
+            DrawHeatingSection();
             GUILayout.Space(10);
 
             DrawEconomySection();
@@ -114,7 +118,6 @@ namespace KingdomsClone.Core.DebugTools
             if (rm != null && gd != null && gd.Resources != null) {
                 foreach (var res in gd.Resources) {
                     if (res == null) continue;
-
                     GUILayout.Label($"  {res.DisplayName}: {rm.GetAmount(res)}");
                 }
             }
@@ -135,7 +138,7 @@ namespace KingdomsClone.Core.DebugTools
             var grid = GridSystem.Instance;
 
             if (grid == null) { 
-                GUILayout.Label("❌ GridSystem не в сцене!"); 
+                GUILayout.Label("GridSystem не в сцене!"); 
                 return; 
             }
 
@@ -153,7 +156,7 @@ namespace KingdomsClone.Core.DebugTools
                 if (int.TryParse(_seedInput, out int parsed)) {
                     grid.RegenerateMap(parsed);
                 } else {
-                    Debug.LogWarning($"[Debug] Некорректный сид: '{_seedInput}'");
+                    Debug.LogWarning($"Некорректный сид: '{_seedInput}'");
                 }
             }
 
@@ -172,7 +175,7 @@ namespace KingdomsClone.Core.DebugTools
             var jm = JobManager.Instance;
 
             if (vm == null) { 
-                GUILayout.Label("❌ VillagerManager не в сцене!"); 
+                GUILayout.Label("VillagerManager не в сцене!"); 
                 return; 
             }
 
@@ -182,14 +185,25 @@ namespace KingdomsClone.Core.DebugTools
 
             GUILayout.Label($"Население: {vm.AllVillagers.Count} (в домах: {residents}/{capacity})");
             GUILayout.Label($"Счастье: {happiness:F1}/10 (модификаторов: {hs?.GetModifiers().Count ?? 0})");
+
+            if (hs != null) {
+                GUILayout.Label($"база={hs.BaseHappiness:F1}, модификаторы={hs.GetModifiersSum():+0.0;-0.0;0.0}");
+            }
+
             GUILayout.Label($"Безработных: {jm?.Unemployed.Count ?? 0} | Вакансий: {jm?.OccupiedJobs ?? 0}/{jm?.TotalJobs ?? 0}");
 
             int hungry = 0, starving = 0;
 
             foreach (var v in vm.AllVillagers) {
                 if (v == null) continue;
-                if (v.HungerLevel > 0) hungry++;
-                if (v.HungerLevel >= 2) starving++;
+
+                if (v.HungerLevel > 0) {
+                    hungry++;
+                }
+
+                if (v.HungerLevel >= 2) {
+                    starving++;
+                }
             }
 
             GUILayout.Label($"Голодных: {hungry} | На грани: {starving}");
@@ -215,6 +229,11 @@ namespace KingdomsClone.Core.DebugTools
             }
 
             GUILayout.EndHorizontal();
+
+            if (GUILayout.Button("Сбросить модификаторы (налог и т.д.)"))
+            {
+                hs?.DebugResetAll();
+            }
 
             GUILayout.BeginHorizontal();
 
@@ -297,20 +316,20 @@ namespace KingdomsClone.Core.DebugTools
             var sm = StorageManager.Instance;
 
             if (sm == null) { 
-                GUILayout.Label("❌ StorageManager не в сцене!"); 
+                GUILayout.Label("StorageManager не в сцене!"); 
                 return; 
             }
 
             GUILayout.Label($"Складов: {sm.AllStorages.Count} | Всего: {sm.GetTotalUsed()}/{sm.GetTotalCapacity()}");
 
-            foreach (var s in sm.AllStorages)
-            {
+            foreach (var s in sm.AllStorages) {
                 if (s == null || s.Building == null) continue;
 
                 GUILayout.Label($"Склад {s.Building.GridPosition}: {s.UsedSpace}/{s.Capacity}");
 
                 foreach (var kvp in s.GetAllItems()) {
                     if (kvp.Value <= 0) continue;
+
                     var res = GameDataSO.Instance?.GetResource(kvp.Key);
                     string name = res != null ? res.DisplayName : kvp.Key;
                     GUILayout.Label($"{name}: {kvp.Value}");
@@ -322,11 +341,12 @@ namespace KingdomsClone.Core.DebugTools
 
         private void DrawRecipesSection() {
             GUILayout.Label("Рецепты");
+
             var bm = BuildingManager.Instance;
             var rm = ResourceManager.Instance;
 
             if (bm == null || rm == null) { 
-                GUILayout.Label("❌ нет менеджеров"); 
+                GUILayout.Label("нет менеджеров"); 
                 return; 
             }
 
@@ -343,8 +363,7 @@ namespace KingdomsClone.Core.DebugTools
 
                 GUILayout.Label($"<b>{b.Data.DisplayName}</b> {b.GridPosition}", new GUIStyle(GUI.skin.label) { richText = true });
 
-                if (recipe != null)
-                {
+                if (recipe != null) {
                     GUILayout.Label($"  SO: {recipe.DisplayName} ({recipe.CycleSeconds:F1}с)");
 
                     if (recipe.HasInputs) {
@@ -367,7 +386,7 @@ namespace KingdomsClone.Core.DebugTools
                     }
                 } else if (legacy != null) {
                     GUILayout.Label($"Наследие ({legacy.CycleSeconds:F1}с)");
-                } else GUILayout.Label("❌ нет рецепта!");
+                } else GUILayout.Label("нет рецепта!");
             }
 
             if (producers == 0) {
@@ -383,7 +402,7 @@ namespace KingdomsClone.Core.DebugTools
             var jm = JobManager.Instance;
 
             if (jm == null) { 
-                GUILayout.Label("❌ JobManager не в сцене!"); 
+                GUILayout.Label("JobManager не в сцене!"); 
                 return; 
             }
 
@@ -439,6 +458,8 @@ namespace KingdomsClone.Core.DebugTools
             var tm = TimeManager.Instance;
             if (tm == null) return;
 
+            GUILayout.Label($"Год {tm.Year}, {TimeManager.GetSeasonNameRu(tm.CurrentSeason)} " + $"({tm.DayInSeason}/{TimeManager.DaysPerSeason})");
+
             GUILayout.BeginHorizontal();
             if (GUILayout.Button("1x")) {
                 tm.SetDebugSpeed(1f);
@@ -466,6 +487,12 @@ namespace KingdomsClone.Core.DebugTools
                 tm.DebugAdvanceGameTime(TimeManager.SecondsPerDay * 30f);
             }
             GUILayout.EndHorizontal();
+
+            if (GUILayout.Button("Следующий сезон"))
+            {
+                int daysLeft = TimeManager.DaysPerSeason - tm.DayInSeason + 1;
+                tm.DebugAdvanceGameTime(daysLeft * TimeManager.SecondsPerDay);
+            }
         }
 
         // Налоги
@@ -480,7 +507,7 @@ namespace KingdomsClone.Core.DebugTools
             var gold = GameDataSO.Instance?.GetResource("Resource_Gold");
 
             if (ts == null) { 
-                GUILayout.Label("❌ TaxSystem не в сцене!"); 
+                GUILayout.Label("TaxSystem не в сцене!"); 
                 return; 
             }
 
@@ -508,7 +535,13 @@ namespace KingdomsClone.Core.DebugTools
                 float eff = ts.GetTaxEfficiency();
                 string effStr = hasTreasurer ? "100% (казначей)" : $"{eff:P0} (нет казначея)";
                 var color = hasTreasurer ? Color.green : Color.yellow;
-                var style = new GUIStyle(GUI.skin.label) { normal = { textColor = color } };
+
+                var style = new GUIStyle(GUI.skin.label) { 
+                    normal = { 
+                        textColor = color 
+                    } 
+                };
+
                 GUILayout.Label($"Сокровищница {treasury.GridPosition}: {effStr}", style);
             }
 
@@ -538,6 +571,76 @@ namespace KingdomsClone.Core.DebugTools
             }
         }
 
+        private void DrawHeatingSection()
+        {
+            GUILayout.Label("Отопление");
+
+            var tm = TimeManager.Instance;
+            var hs = HeatingSystem.Instance;
+            var rm = ResourceManager.Instance;
+            var hm = HousingManager.Instance;
+
+            if (tm == null) { 
+                GUILayout.Label("нет TimeManager"); 
+                return; 
+            }
+
+            GUILayout.Label($"Сезон: {TimeManager.GetSeasonNameRu(tm.CurrentSeason)}, день {tm.DayInSeason}/{TimeManager.DaysPerSeason}");
+
+            var wood = GameDataSO.Instance?.GetResource("Resource_Wood");
+
+            if (wood != null && rm != null) {
+                GUILayout.Label($"Дрова в пуле: {rm.GetAmount(wood)}");
+            }
+
+            if (hs == null) { 
+                GUILayout.Label("HeatingSystem не в сцене!"); 
+                return; 
+            }
+
+            if (hm == null) { 
+                GUILayout.Label("HousingManager не в сцене!"); 
+                return; 
+            }
+
+            var redStyle = new GUIStyle(GUI.skin.label) { 
+                normal = { 
+                    textColor = Color.red 
+                } 
+            };
+
+            var greenStyle = new GUIStyle(GUI.skin.label) { 
+                normal = { 
+                    textColor = Color.green 
+                } 
+            };
+
+            if (tm.CurrentSeason == Season.Winter) {
+                if (hs.ColdHousesLastCheck > 0) {
+                    GUILayout.Label($"Холодных домов: {hs.ColdHousesLastCheck}/{hs.TotalHousesLastCheck}", redStyle);
+                } else {
+                    GUILayout.Label($"Все {hs.TotalHousesLastCheck} домов протоплены", greenStyle);
+                }
+            } else {
+                GUILayout.Label("Не зима — отопление не нужно");
+            }
+
+            // Суммарное потребление всех домов на следующий день
+            if (tm.CurrentSeason == Season.Winter) {
+                int totalNeed = 0;
+
+                foreach (var house in hm.AllHouses) {
+                    if (house == null || house.State != BuildingState.Active) continue;
+                    if (house.Data == null || !house.Data.RequiresWinterHeating) continue;
+                    if (house.Residents <= 0) continue;
+
+                    totalNeed += Mathf.CeilToInt(house.Residents * house.Data.WinterFuelPerResidentPerDay);
+                }
+
+                GUILayout.Label($"Потребление завтра: {totalNeed} {(wood != null ? wood.DisplayName : "топлива")}");
+            }
+        }
+
         private void DrawEconomySection()
         {
             GUILayout.Label("Экономика");
@@ -546,7 +649,7 @@ namespace KingdomsClone.Core.DebugTools
             var gd = GameDataSO.Instance;
 
             if (rm == null || gd == null) { 
-                GUILayout.Label("❌ нет менеджеров"); 
+                GUILayout.Label("нет менеджеров"); 
                 return; 
             }
 
@@ -580,8 +683,7 @@ namespace KingdomsClone.Core.DebugTools
         {
             GUILayout.Label("Враги");
 
-            if (GUILayout.Button("Выпустить снаряды (50)"))
-            {
+            if (GUILayout.Button("Выпустить снаряды (50)")) {
                 if (PoolManager.Instance == null) return;
 
                 if (_testProjectilePrefab == null) {
@@ -612,8 +714,12 @@ namespace KingdomsClone.Core.DebugTools
             }
 
             GUILayout.Space(5);
-            if (GUILayout.Button("Рейд (заглушка)"))
-                EventBus.Publish(new SpawnRaidRequestedEvent { WaveNumber = 1 });
+            
+            if (GUILayout.Button("Рейд (заглушка)")) {
+                EventBus.Publish(new SpawnRaidRequestedEvent { 
+                    WaveNumber = 1 
+                });
+            }
         }
 
         // Состояние

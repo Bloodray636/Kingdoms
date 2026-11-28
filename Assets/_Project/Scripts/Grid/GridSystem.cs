@@ -1,7 +1,7 @@
 using UnityEngine;
 using KingdomsClone.Grid.Events;
 using KingdomsClone.Core;
-using KingdomsClone.Core.Events;     // ← ФИКС: для PathCacheClearEvent
+using KingdomsClone.Core.Events;
 using KingdomsClone.Gameplay;
 
 namespace KingdomsClone.Grid
@@ -40,7 +40,11 @@ namespace KingdomsClone.Grid
 
         private void Awake()
         {
-            if (Instance != null && Instance != this) { Destroy(gameObject); return; }
+            if (Instance != null && Instance != this) { 
+                Destroy(gameObject); 
+                return; 
+            }
+
             Instance = this;
             DontDestroyOnLoad(gameObject);
         }
@@ -52,22 +56,21 @@ namespace KingdomsClone.Grid
 
         public void RegenerateMap(int newSeed)
         {
-            if (width <= 0 || height <= 0 || cellSize <= 0f)
-            {
+            if (width <= 0 || height <= 0 || cellSize <= 0f) {
                 Debug.LogError("[GridSystem] Некорректные размеры сетки!");
                 return;
             }
 
             mapSeed = newSeed;
 
-            if (BuildingManager.Instance == null)
-            {
+            if (BuildingManager.Instance == null) {
                 Debug.LogError("[GridSystem] КРИТИЧЕСКАЯ ОШИБКА КОНФИГУРАЦИИ: BuildingManager отсутствует! " + "Перегенерация оставит старые здания. Добавь BuildingManager.");
                 return;
             }
 
-            if (VillagerManager.Instance != null)
+            if (VillagerManager.Instance != null) {
                 VillagerManager.Instance.ClearAllSilent();
+            }
 
             BuildingManager.Instance.ClearAllSilent();
 
@@ -85,32 +88,34 @@ namespace KingdomsClone.Grid
                 StartLocation = StartLocation
             });
 
-            // ФИКС: инвалидация кэша путей после перегенерации
+            // инвалидация кэша путей после перегенерации
             EventBus.Publish(new PathCacheClearEvent());
         }
-
-        // ============ ЕДИНАЯ ВЫСОТА ПОВЕРХНОСТИ ============
 
         public float GetSurfaceY(int x, int y)
         {
             var cell = GetCell(x, y);
-            if (cell == null) return surfaceYOffset;
 
-            if (cell.Type == TileType.Water)
-                return surfaceYOffset - 0.1f;
+            if (cell == null) {
+                return originPosition.y + surfaceYOffset;
+            }
 
-            return surfaceYOffset;
+            if (cell.Type == TileType.Water) {
+                return originPosition.y + surfaceYOffset - 0.1f;
+            }
+
+            return originPosition.y + surfaceYOffset;
         }
 
         public float GetSurfaceY(Vector2Int cell) => GetSurfaceY(cell.x, cell.y);
 
-        // ============ КОНВЕРТАЦИЯ ============
+        // Конвертация
 
         public Vector3 CellToWorld(int x, int y)
         {
             return new Vector3(
                 x * cellSize + (cellSize * 0.5f) + originPosition.x,
-                0f,
+                originPosition.y,
                 y * cellSize + (cellSize * 0.5f) + originPosition.z
             );
         }
@@ -130,23 +135,28 @@ namespace KingdomsClone.Grid
         {
             if (_grid == null) return null;
             if (!IsValidCell(x, y)) return null;
+
             return _grid[x, y];
         }
 
         public bool IsCellFreeForBuilding(int x, int y)
         {
             if (!IsValidCell(x, y)) return false;
+
             Cell c = GetCell(x, y);
+
             if (c == null) return false;
+
             return c.IsBuildable() && c.IsFree();
         }
 
         public void RegisterBuilding(int x, int y, GameObject building, bool isHousing = false)
         {
             if (!IsValidCell(x, y)) return;
+
             var cell = GetCell(x, y);
-            if (cell != null) 
-            {
+
+            if (cell != null) {
                 cell.OccupiedBy = building;
                 cell.OccupiedByIsHousing = isHousing;
             }
@@ -155,9 +165,12 @@ namespace KingdomsClone.Grid
         public void UnregisterBuilding(int x, int y, GameObject expectedOwner = null)
         {
             if (!IsValidCell(x, y)) return;
+
             var cell = GetCell(x, y);
+
             if (cell == null) return;
             if (expectedOwner != null && cell.OccupiedBy != expectedOwner) return;
+
             cell.OccupiedBy = null;
             cell.OccupiedByIsHousing = false;
         }
@@ -165,18 +178,21 @@ namespace KingdomsClone.Grid
         public bool IsFishingZone(int x, int y)
         {
             if (!IsValidCell(x, y)) return false;
+            
             Cell cell = GetCell(x, y);
+
             if (cell == null || (cell.Type != TileType.Grass && cell.Type != TileType.Fertile)) return false;
 
-            for (int dx = -1; dx <= 1; dx++)
-            {
-                for (int dy = -1; dy <= 1; dy++)
-                {
+            for (int dx = -1; dx <= 1; dx++) {
+                for (int dy = -1; dy <= 1; dy++) {
                     if (dx == 0 && dy == 0) continue;
-                    if (IsValidCell(x + dx, y + dy) && GetCell(x + dx, y + dy).Type == TileType.Water)
+
+                    if (IsValidCell(x + dx, y + dy) && GetCell(x + dx, y + dy).Type == TileType.Water) {
                         return true;
+                    }
                 }
             }
+            
             return false;
         }
     }

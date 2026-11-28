@@ -49,29 +49,39 @@ namespace KingdomsClone.UI
 
         private static readonly Dictionary<BuildingCategory, string> _categoryLabels = new()
         {
-            { BuildingCategory.Housing,    "🏠 Жильё" },
-            { BuildingCategory.Production, "⚒ Производство" },
-            { BuildingCategory.Happiness,  "☺ Счастье" },
-            { BuildingCategory.Defense,    "🛡 Оборона" },
-            { BuildingCategory.Storage,    "📦 Склады" },
-            { BuildingCategory.Special,    "⭐ Специальные" },
+            { BuildingCategory.Housing, "Жильё" },
+            { BuildingCategory.Production, "Производство" },
+            { BuildingCategory.Happiness, "Счастье" },
+            { BuildingCategory.Defense, "Оборона" },
+            { BuildingCategory.Storage, "Склады" },
+            { BuildingCategory.Special, "Специальные" },
         };
 
         private void Awake()
         {
-            if (_instance != null && _instance != this)
-            {
+            if (_instance != null && _instance != this) {
                 Debug.LogWarning("[BuildingUIManager] Дубликат обнаружен! Уничтожаю лишний.");
                 Destroy(gameObject);
                 return;
             }
+
             _instance = this;
 
-            if (placer == null) placer = FindObjectOfType<BuildingPlacer>();
-            if (demolisher == null) demolisher = FindObjectOfType<BuildingDemolisher>();
+            if (placer == null) {
+                placer = FindObjectOfType<BuildingPlacer>();
+            }
 
-            if (placer == null) Debug.LogError("[BuildingUIManager] BuildingPlacer НЕ НАЙДЕН!");
-            if (demolisher == null) Debug.LogError("[BuildingUIManager] BuildingDemolisher НЕ НАЙДЕН!");
+            if (demolisher == null) {
+                demolisher = FindObjectOfType<BuildingDemolisher>();
+            }
+
+            if (placer == null) {
+                Debug.LogError("[BuildingUIManager] BuildingPlacer НЕ НАЙДЕН!");
+            }
+
+            if (demolisher == null) {
+                Debug.LogError("[BuildingUIManager] BuildingDemolisher НЕ НАЙДЕН!");
+            }
 
             _font = LoadFont();
             EnsureEventSystem();
@@ -88,30 +98,38 @@ namespace KingdomsClone.UI
         private void Update()
         {
             var kb = UnityEngine.InputSystem.Keyboard.current;
+
             if (kb == null) return;
 
-            if (kb.bKey.wasPressedThisFrame)
+            if (kb.bKey.wasPressedThisFrame) {
                 TogglePanel();
+            }
 
-            if (kb.tKey.wasPressedThisFrame)
+            if (kb.tKey.wasPressedThisFrame) {
                 OnRoadClicked();
+            }
 
-            if (kb.xKey.wasPressedThisFrame)
+            if (kb.xKey.wasPressedThisFrame) {
                 OnDemolishClicked();
+            }
         }
 
         private void OnRoadClicked()
         {
             var roadPlacer = FindObjectOfType<KingdomsClone.Gameplay.RoadPlacer>();
-            if (roadPlacer == null)
-            {
+
+            if (roadPlacer == null) {
                 Debug.LogError("[BuildingUIManager] RoadPlacer не найден в сцене!");
                 return;
             }
 
-            // Отменяем все другие режимы, чтобы не дрались
-            if (placer != null) placer.CancelPlacement();
-            if (demolisher != null) demolisher.Cancel();
+            if (placer != null) {
+                placer.CancelPlacement();
+            }
+
+            if (demolisher != null) {
+                demolisher.Cancel();
+            }
 
             SetPanelOpen(false);
             roadPlacer.StartPlacement();
@@ -120,8 +138,15 @@ namespace KingdomsClone.UI
         private static Font LoadFont()
         {
             var f = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (f == null) f = Resources.GetBuiltinResource<Font>("Arial.ttf");
-            if (f == null) f = Font.CreateDynamicFontFromOSFont("Arial", 16);
+
+            if (f == null) {
+                f = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            }
+
+            if (f == null) {
+                f = Font.CreateDynamicFontFromOSFont("Arial", 16);
+            }
+
             return f;
         }
 
@@ -130,8 +155,6 @@ namespace KingdomsClone.UI
             if (FindObjectOfType<EventSystem>() != null) return;
             new GameObject("EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
         }
-
-        // =====================  ПОСТРОЕНИЕ UI  =====================
 
         private void BuildUI()
         {
@@ -147,7 +170,7 @@ namespace KingdomsClone.UI
             scaler.referenceResolution = new Vector2(1920, 1080);
             scaler.matchWidthOrHeight = 0.5f;
 
-            // ---------- Основная панель ----------
+            // Основная панель
             _panel = new GameObject("BottomPanel", typeof(RectTransform), typeof(Image));
             _panel.transform.SetParent(_canvas.transform, false);
             var panelRect = _panel.GetComponent<RectTransform>();
@@ -158,9 +181,10 @@ namespace KingdomsClone.UI
             panelRect.anchoredPosition = Vector2.zero;
             _panel.GetComponent<Image>().color = new Color(0.07f, 0.08f, 0.11f, 0.96f);
 
-            // ---------- Вкладки ----------
+            // Вкладки
             var catBar = new GameObject("CategoryBar", typeof(RectTransform), typeof(HorizontalLayoutGroup));
             catBar.transform.SetParent(_panel.transform, false);
+
             var catRect = catBar.GetComponent<RectTransform>();
             catRect.anchorMin = new Vector2(0, 1);
             catRect.anchorMax = new Vector2(1, 1);
@@ -177,10 +201,11 @@ namespace KingdomsClone.UI
             catHlg.childControlWidth = true;
             catHlg.childControlHeight = true;
 
-            foreach (var cat in _categories)
+            foreach (var cat in _categories) {
                 CreateCategoryButton(catBar.transform, cat);
+            }
 
-            // ---------- Сетка кнопок зданий ----------
+            // Сетка кнопок зданий
             var gridGo = new GameObject("BuildingGrid", typeof(RectTransform), typeof(HorizontalLayoutGroup));
             gridGo.transform.SetParent(_panel.transform, false);
             _buildingGridRect = gridGo.GetComponent<RectTransform>();
@@ -212,9 +237,7 @@ namespace KingdomsClone.UI
             btnGo.transform.SetParent(parent, false);
 
             var img = btnGo.GetComponent<Image>();
-            img.color = cat == _currentCategory
-                ? new Color(0.25f, 0.45f, 0.7f, 1f)
-                : new Color(0.15f, 0.17f, 0.22f, 1f);
+            img.color = cat == _currentCategory ? new Color(0.25f, 0.45f, 0.7f, 1f) : new Color(0.15f, 0.17f, 0.22f, 1f);
             _categoryImages[cat] = img;
 
             var le = btnGo.AddComponent<LayoutElement>();
@@ -223,6 +246,7 @@ namespace KingdomsClone.UI
 
             var textGo = new GameObject("Label", typeof(RectTransform), typeof(Text));
             textGo.transform.SetParent(btnGo.transform, false);
+
             var tRect = textGo.GetComponent<RectTransform>();
             tRect.anchorMin = Vector2.zero;
             tRect.anchorMax = Vector2.one;
@@ -251,6 +275,7 @@ namespace KingdomsClone.UI
 
             var textGo = new GameObject("TooltipText", typeof(RectTransform), typeof(Text));
             textGo.transform.SetParent(_tooltipPanel.transform, false);
+
             var tRect = textGo.GetComponent<RectTransform>();
             tRect.anchorMin = Vector2.zero;
             tRect.anchorMax = Vector2.one;
@@ -272,6 +297,7 @@ namespace KingdomsClone.UI
         {
             _toggleBtnGo = new GameObject("TogglePanelBtn", typeof(RectTransform), typeof(Image), typeof(Button));
             _toggleBtnGo.transform.SetParent(_canvas.transform, false);
+
             var rect = _toggleBtnGo.GetComponent<RectTransform>();
             rect.anchorMin = new Vector2(0, 0);
             rect.anchorMax = new Vector2(0, 0);
@@ -283,6 +309,7 @@ namespace KingdomsClone.UI
 
             var textGo = new GameObject("Label", typeof(RectTransform), typeof(Text));
             textGo.transform.SetParent(_toggleBtnGo.transform, false);
+
             var tRect = textGo.GetComponent<RectTransform>();
             tRect.anchorMin = Vector2.zero;
             tRect.anchorMax = Vector2.one;
@@ -290,7 +317,7 @@ namespace KingdomsClone.UI
             tRect.offsetMax = Vector2.zero;
 
             var t = textGo.GetComponent<Text>();
-            t.text = "🔨 Открыть меню (B)";
+            t.text = "Открыть меню (B)";
             t.font = _font;
             t.fontSize = 18;
             t.color = Color.white;
@@ -317,6 +344,7 @@ namespace KingdomsClone.UI
 
             var textGo = new GameObject("Label", typeof(RectTransform), typeof(Text));
             textGo.transform.SetParent(btnGo.transform, false);
+
             var tRect = textGo.GetComponent<RectTransform>();
             tRect.anchorMin = Vector2.zero;
             tRect.anchorMax = Vector2.one;
@@ -350,6 +378,7 @@ namespace KingdomsClone.UI
 
             var textGo = new GameObject("Label", typeof(RectTransform), typeof(Text));
             textGo.transform.SetParent(btnGo.transform, false);
+
             var tRect = textGo.GetComponent<RectTransform>();
             tRect.anchorMin = Vector2.zero;
             tRect.anchorMax = Vector2.one;
@@ -367,15 +396,16 @@ namespace KingdomsClone.UI
             btnGo.GetComponent<Button>().onClick.AddListener(OnDemolishClicked);
         }
 
-        // =====================  ЛОГИКА  =====================
+        // ЛОГИКА
 
         private void SelectCategory(BuildingCategory cat)
         {
             _currentCategory = cat;
-            foreach (var kvp in _categoryImages)
-                kvp.Value.color = kvp.Key == cat
-                    ? new Color(0.25f, 0.45f, 0.7f, 1f)
-                    : new Color(0.15f, 0.17f, 0.22f, 1f);
+
+            foreach (var kvp in _categoryImages) {
+                kvp.Value.color = kvp.Key == cat ? new Color(0.25f, 0.45f, 0.7f, 1f) : new Color(0.15f, 0.17f, 0.22f, 1f);
+            }
+
             RefreshCategory(cat);
         }
 
@@ -388,17 +418,17 @@ namespace KingdomsClone.UI
             if (data == null) return;
 
             int count = 0;
-            foreach (var building in data.Buildings)
-            {
+
+            foreach (var building in data.Buildings) {
                 if (building == null || building.Category != cat) continue;
                 CreateBuildingButton(building);
                 count++;
             }
 
-            if (count == 0)
-            {
+            if (count == 0) {
                 var emptyGo = new GameObject("Empty", typeof(RectTransform), typeof(Text));
                 emptyGo.transform.SetParent(_buildingGridRect, false);
+
                 var t = emptyGo.GetComponent<Text>();
                 t.text = "Нет зданий в этой категории";
                 t.font = _font;
@@ -423,6 +453,7 @@ namespace KingdomsClone.UI
 
             var textGo = new GameObject("Label", typeof(RectTransform), typeof(Text));
             textGo.transform.SetParent(btnGo.transform, false);
+
             var tRect = textGo.GetComponent<RectTransform>();
             tRect.anchorMin = Vector2.zero;
             tRect.anchorMax = Vector2.one;
@@ -453,7 +484,6 @@ namespace KingdomsClone.UI
             Debug.Log($"[BuildingUIManager] КЛИК: {building?.DisplayName}");
             if (building == null) return;
 
-            // Отменяем все другие режимы
             if (demolisher != null && demolisher.IsActive) demolisher.Cancel();
 
             var roadPlacer = FindObjectOfType<KingdomsClone.Gameplay.RoadPlacer>();
@@ -462,25 +492,26 @@ namespace KingdomsClone.UI
             SetPanelOpen(false);
             HideTooltip();
 
-            if (placer == null)
-            {
+            if (placer == null) {
                 Debug.LogError("[BuildingUIManager] placer == null!");
                 return;
             }
+
             placer.StartPlacement(building);
         }
 
         private void OnDemolishClicked()
         {
-            if (demolisher == null)
-            {
+            if (demolisher == null) {
                 Debug.LogError("[BuildingUIManager] BuildingDemolisher не найден!");
                 return;
             }
 
             // Отменяем другие режимы
             if (placer != null) placer.CancelPlacement();
+
             var roadPlacer = FindObjectOfType<KingdomsClone.Gameplay.RoadPlacer>();
+
             if (roadPlacer != null) roadPlacer.Cancel();
 
             SetPanelOpen(false);
@@ -497,7 +528,7 @@ namespace KingdomsClone.UI
             HideTooltip();
         }
 
-        // =====================  ТУЛТИП  =====================
+        // Тултип
 
         private void ShowTooltip(BuildingDataSO building, RectTransform anchor)
         {
@@ -507,25 +538,26 @@ namespace KingdomsClone.UI
             var sb = new System.Text.StringBuilder();
 
             sb.AppendLine($"<b>{building.DisplayName}</b>");
-            if (!string.IsNullOrEmpty(building.Description))
-            {
+
+            if (!string.IsNullOrEmpty(building.Description)) {
                 sb.AppendLine($"<i>{building.Description}</i>");
                 sb.AppendLine();
             }
 
             sb.AppendLine("<b>Стоимость:</b>");
-            if (building.BuildCost != null && building.BuildCost.Count > 0)
-            {
-                foreach (var ra in building.BuildCost)
-                {
+
+            if (building.BuildCost != null && building.BuildCost.Count > 0) {
+                foreach (var ra in building.BuildCost) {
                     if (ra == null || ra.Resource == null) continue;
+
                     int have = rm != null ? rm.GetAmount(ra.Resource) : 0;
                     bool enough = have >= ra.Amount;
                     string color = enough ? "#8FFF8F" : "#FF8888";
                     sb.AppendLine($"  <color={color}>{ra.Resource.DisplayName}: {ra.Amount} (есть {have})</color>");
                 }
+            } else {
+                sb.AppendLine("  (бесплатно)");
             }
-            else sb.AppendLine("  (бесплатно)");
 
             sb.AppendLine();
             sb.AppendLine($"<b>HP:</b> {building.MaxHealth}");

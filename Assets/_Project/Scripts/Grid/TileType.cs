@@ -2,11 +2,11 @@ namespace KingdomsClone.Grid
 {
     public enum TileType
     {
-        Grass,    // Трава (базовая)
-        Forest,   // Лес (деревья)
-        Rock,     // Камень (скалы)
-        Water,    // Вода (нельзя строить)
-        Fertile,   // Плодородная земля (ускоряет фермы)
+        Grass, // Трава
+        Forest, // Лес
+        Rock, // Камень
+        Water, // Вода
+        Fertile, // Плодородная земля
         Road,
         Swamp
     }

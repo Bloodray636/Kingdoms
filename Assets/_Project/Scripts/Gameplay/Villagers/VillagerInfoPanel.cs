@@ -71,6 +71,14 @@ namespace KingdomsClone.Gameplay
             _nameText.text = _target.VillagerName ?? "Безымянный";
             _stateText.text = $"Состояние: {StateRu(_target.State)}";
 
+            if (_target.CurrentJob != null && _target.CurrentJob.Workplace != null) {
+                var workplace = _target.CurrentJob.Workplace;
+                
+                if (!workplace.IsProductionActiveNow() && _target.State == VillagerState.Work) {
+                    _stateText.text = $"Состояние: {StateRu(_target.State)} (зимовка)";
+                }
+            }
+
             if (_target.CurrentJob != null) {
                 _jobText.text = $"Работа: {JobRu(_target.CurrentJob.Type)} ({_target.CurrentJob.WorkplaceCell})";
             } else {

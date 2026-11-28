@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using KingdomsClone.Core.Events;
 
@@ -29,11 +30,24 @@ namespace KingdomsClone.Core
         [SerializeField] private AnimationCurve moonIntensity;
         [SerializeField] private Color moonColor = new Color(0.6f, 0.7f, 1f);
 
+        private static readonly List<DayNightCycle> _activeInstances = new();
         private static DayNightCycle _activeCycle;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetStatics()
+        {
+            _activeInstances.Clear();
+            _activeCycle = null;
+        }
 
         private void OnEnable()
         {
+            if (!_activeInstances.Contains(this)) {
+                _activeInstances.Add(this);
+            }
+
             _activeCycle = this;
+
             EventBus.Subscribe<GameTickEvent>(OnTick);
 
             if (Application.isPlaying) {
@@ -43,16 +57,33 @@ namespace KingdomsClone.Core
 
         private void OnDisable()
         {
+            _activeInstances.Remove(this);
             EventBus.Unsubscribe<GameTickEvent>(OnTick);
 
             if (_activeCycle == this) {
-                _activeCycle = null;
+                _activeCycle = _activeInstances.Count > 0 ? _activeInstances[_activeInstances.Count - 1] : null;
+
+                if (_activeCycle != null) {
+                    if (Application.isPlaying) {
+                        _activeCycle.RefreshFromTimeManager();
+                        Debug.Log($"[DayNightCycle] Активный цикл отключён. Управление передано '{_activeCycle.name}'.");
+                    }
+                } else {
+                    if (Application.isPlaying) {
+                        Debug.Log("[DayNightCycle] Активный цикл отключён. Других живых циклов нет — освещение заморожено.");
+                    }
+                }
             }
         }
 
         private void OnTick(GameTickEvent _)
         {
+            if (_activeCycle == null && _activeInstances.Count > 0) {
+                _activeCycle = _activeInstances[_activeInstances.Count - 1];
+            }
+
             if (_activeCycle != this) return;
+
             RefreshFromTimeManager();
         }
 
@@ -61,7 +92,6 @@ namespace KingdomsClone.Core
             if (!Application.isPlaying) return;
 
             var tm = TimeManager.Instance;
-
             if (tm == null) return;
 
             ApplyLighting(tm.DayProgress);

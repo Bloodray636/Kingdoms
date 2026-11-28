@@ -40,12 +40,18 @@ namespace KingdomsClone.Gameplay
 
         public void StartPlacement()
         {
-            // Кросс-отмена: гасим другие режимы
+            // Кросс-отмена
             var buildingPlacer = FindObjectOfType<BuildingPlacer>();
-            if (buildingPlacer != null) buildingPlacer.CancelPlacement();
+
+            if (buildingPlacer != null) {
+                buildingPlacer.CancelPlacement();
+            }
 
             var demolisher = FindObjectOfType<BuildingDemolisher>();
-            if (demolisher != null) demolisher.Cancel();
+
+            if (demolisher != null) {
+                demolisher.Cancel();
+            }
 
             _isPlacing = true;
             _lastCell = new Vector2Int(-999, -999);
@@ -56,8 +62,13 @@ namespace KingdomsClone.Gameplay
         public void Cancel()
         {
             if (!_isPlacing) return;
+
             _isPlacing = false;
-            if (_ghost != null) _ghost.SetActive(false);
+
+            if (_ghost != null) {
+                _ghost.SetActive(false);
+            }
+
             Debug.Log("[RoadPlacer] Режим прокладки отменён.");
         }
 
@@ -66,27 +77,32 @@ namespace KingdomsClone.Gameplay
             if (!_isPlacing) return;
             if (Keyboard.current == null || Mouse.current == null) return;
 
-            if (Keyboard.current.escapeKey.wasPressedThisFrame || Mouse.current.rightButton.wasPressedThisFrame)
-            {
+            if (Keyboard.current.escapeKey.wasPressedThisFrame || Mouse.current.rightButton.wasPressedThisFrame) {
                 Cancel();
                 return;
             }
 
             UpdateGhost();
 
-            if (Mouse.current.leftButton.isPressed && !IsPointerOverUI())
+            if (Mouse.current.leftButton.isPressed && !IsPointerOverUI()) {
                 TryPlaceRoad();
+            }
 
-            if (Mouse.current.leftButton.wasReleasedThisFrame)
+            if (Mouse.current.leftButton.wasReleasedThisFrame) {
                 Cancel();
+            }
         }
 
         private static bool IsPointerOverUI()
         {
-            if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
+            if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) {
                 return true;
-            if (DebugMenu.IsOpen)
+            }
+
+            if (DebugMenu.IsOpen) {
                 return true;
+            }
+
             return false;
         }
 
@@ -94,10 +110,12 @@ namespace KingdomsClone.Gameplay
         {
             var grid = GridSystem.Instance;
             var cam = Camera.main;
+
             if (grid == null || cam == null) return;
 
             Ray ray = cam.ScreenPointToRay(Mouse.current.position.ReadValue());
             Plane plane = new Plane(Vector3.up, Vector3.zero);
+
             if (!plane.Raycast(ray, out float enter)) return;
 
             Vector2Int cell = grid.WorldToCell(ray.GetPoint(enter));
@@ -106,27 +124,33 @@ namespace KingdomsClone.Gameplay
             _ghost.transform.position = pos;
 
             bool can = CanPlaceRoad(cell);
-            if (_ghostRenderer != null)
+
+            if (_ghostRenderer != null) {
                 _ghostRenderer.sharedMaterial = can ? validPreviewMaterial : invalidPreviewMaterial;
+            }
         }
 
         private void TryPlaceRoad()
         {
             var grid = GridSystem.Instance;
+
             if (grid == null) return;
 
             Ray ray = Camera.main.ScreenPointToRay(Mouse.current.position.ReadValue());
             Plane plane = new Plane(Vector3.up, Vector3.zero);
+
             if (!plane.Raycast(ray, out float enter)) return;
 
             Vector2Int cell = grid.WorldToCell(ray.GetPoint(enter));
+
             if (cell == _lastCell) return;
+
             _lastCell = cell;
 
             if (!CanPlaceRoad(cell)) return;
 
             var c = grid.GetCell(cell.x, cell.y);
-            c.PreviousType = c.Type;   // для будущего сноса дороги
+            c.PreviousType = c.Type;
 
             c.Type = TileType.Road;
             c.UpdateMovementCost();
@@ -138,26 +162,30 @@ namespace KingdomsClone.Gameplay
         private void ClearTreesOnCell(Vector2Int cell)
         {
             var decorator = FindObjectOfType<MapDecorator>();
+
             if (decorator == null) return;
 
             var grid = GridSystem.Instance;
             Vector3 center = grid.CellToWorld(cell.x, cell.y);
             float half = grid.CellSize * 0.5f;
 
-            foreach (Transform child in decorator.transform)
-            {
+            foreach (Transform child in decorator.transform) {
                 Vector3 d = child.position - center;
-                if (Mathf.Abs(d.x) < half && Mathf.Abs(d.z) < half)
+
+                if (Mathf.Abs(d.x) < half && Mathf.Abs(d.z) < half) {
                     Destroy(child.gameObject);
+                }
             }
         }
 
         private bool CanPlaceRoad(Vector2Int cell)
         {
             var grid = GridSystem.Instance;
+
             if (!grid.IsValidCell(cell.x, cell.y)) return false;
 
             var c = grid.GetCell(cell.x, cell.y);
+            
             if (c == null) return false;
             if (c.Type == TileType.Road) return false;
             if (c.Type == TileType.Forest) return false;

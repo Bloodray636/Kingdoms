@@ -6,11 +6,6 @@ using KingdomsClone.Grid.Events;
 
 namespace KingdomsClone.Grid
 {
-    /// <summary>
-    /// Визуализация дорог через Graphics.DrawMesh.
-    /// Слушает RoadPlacedEvent (добавление) и RoadRemovedEvent (удаление).
-    /// При удалении — полная пересборка списка позиций из сетки.
-    /// </summary>
     public class RoadVisualizer : MonoBehaviour
     {
         [SerializeField] private Material roadMaterial;
@@ -40,7 +35,7 @@ namespace KingdomsClone.Grid
             EventBus.Unsubscribe<GridGeneratedEvent>(OnGridGenerated);
         }
 
-        // ============ СОБЫТИЯ ============
+        // События
 
         private void OnRoadPlaced(RoadPlacedEvent e)
         {
@@ -54,33 +49,23 @@ namespace KingdomsClone.Grid
 
         private void OnRoadRemoved(RoadRemovedEvent e)
         {
-            // Удаление одной дороги → быстрый путь: убрать одну позицию по индексу.
-            // Но матчить по координатам через _roadPositions нельзя надёжно
-            // (округления float), поэтому просто пересобираем весь список из сетки.
             RebuildRoadPositions();
         }
 
         private void OnGridGenerated(GridGeneratedEvent e) => _roadPositions.Clear();
 
-        // ============ ПЕРЕСБОРКА ============
-
-        /// <summary>
-        /// Полная пересборка списка позиций из текущего состояния сетки.
-        /// Используется при удалении дороги — гарантирует консистентность
-        /// визуала с данными Cell.Type == TileType.Road.
-        /// </summary>
         private void RebuildRoadPositions()
         {
             _roadPositions.Clear();
 
             var grid = GridSystem.Instance;
+
             if (grid == null || grid.Grid == null) return;
 
-            for (int x = 0; x < grid.Width; x++)
-            {
-                for (int y = 0; y < grid.Height; y++)
-                {
+            for (int x = 0; x < grid.Width; x++) {
+                for (int y = 0; y < grid.Height; y++) {
                     var c = grid.GetCell(x, y);
+
                     if (c == null || c.Type != TileType.Road) continue;
 
                     Vector3 pos = grid.CellToWorld(x, y);
@@ -90,7 +75,7 @@ namespace KingdomsClone.Grid
             }
         }
 
-        // ============ РЕНДЕР ============
+        // Рендер
 
         private void LateUpdate()
         {
@@ -99,24 +84,27 @@ namespace KingdomsClone.Grid
             Matrix4x4 rot = Matrix4x4.Rotate(Quaternion.Euler(-90f, 0f, 0f));
             Vector3 scale = Vector3.one;
 
-            for (int i = 0; i < _roadPositions.Count; i++)
-            {
+            for (int i = 0; i < _roadPositions.Count; i++) {
                 Matrix4x4 mat = Matrix4x4.TRS(_roadPositions[i], Quaternion.Euler(-90f, 0f, 0f), scale);
                 Graphics.DrawMesh(_quadMesh, mat, roadMaterial, 0);
             }
         }
 
-        // ============ MESH ============
-
         private Mesh GenerateQuadMesh()
         {
-            var mesh = new Mesh { name = "Road_Quad" };
-            mesh.vertices = new[]
-            {
+            var mesh = new Mesh { 
+                name = "Road_Quad" 
+            };
+
+            mesh.vertices = new[] {
                 new Vector3(-0.5f, -0.5f, 0), new Vector3( 0.5f, -0.5f, 0),
                 new Vector3(-0.5f,  0.5f, 0), new Vector3( 0.5f,  0.5f, 0)
             };
-            mesh.triangles = new[] { 0, 1, 2, 2, 1, 3 };
+
+            mesh.triangles = new[] { 
+                0, 1, 2, 2, 1, 3 
+            };
+            
             mesh.RecalculateNormals();
             return mesh;
         }

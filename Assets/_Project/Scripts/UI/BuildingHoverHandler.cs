@@ -4,10 +4,6 @@ using UnityEngine.EventSystems;
 
 namespace KingdomsClone.UI
 {
-    /// <summary>
-    /// Ловит наведение мыши на UI-элемент и вызывает коллбеки.
-    /// Нужен для тултипов (Unity Button не даёт OnHover из коробки).
-    /// </summary>
     public class BuildingHoverHandler : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     {
         public Action<RectTransform> OnEnter;
