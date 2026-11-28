@@ -29,8 +29,8 @@ namespace KingdomsClone.Utils
 
             // Проверка лукапов по ID
             var wood = data.GetResource("Resource_Wood");
-            
-            Debug.Log(wood != null ? $"✅ Lookup по ID работает: {wood.DisplayName}" : "❌ Lookup по ID не работает");
+
+            Debug.Log(wood != null ? $"Lookup по ID работает: {wood.DisplayName}" : "Lookup по ID не работает");
         }
     }
 }

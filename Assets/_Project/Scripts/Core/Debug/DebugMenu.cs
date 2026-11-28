@@ -83,6 +83,9 @@ namespace KingdomsClone.Core.DebugTools
             DrawHeatingSection();
             GUILayout.Space(10);
 
+            DrawMortalitySection();
+            GUILayout.Space(10);
+
             DrawEconomySection();
             GUILayout.Space(10);
 
@@ -638,6 +641,46 @@ namespace KingdomsClone.Core.DebugTools
                 }
 
                 GUILayout.Label($"Потребление завтра: {totalNeed} {(wood != null ? wood.DisplayName : "топлива")}");
+            }
+        }
+
+        private void DrawMortalitySection()
+        {
+            GUILayout.Label("Смертность");
+
+            var ms = MortalitySystem.Instance;
+            var hs = HappinessSystem.Instance;
+            var vm = VillagerManager.Instance;
+            var rm = ResourceManager.Instance;
+            var food = GameDataSO.Instance?.GetResource("Resource_Food");
+
+            if (ms == null) { 
+                GUILayout.Label("MortalitySystem не в сцене!"); 
+                return; 
+            }
+
+            GUILayout.Label($"Всего смертей: {ms.TotalDeaths} (вчера: {ms.DeathsLastDay})");
+            GUILayout.Label($"Штраф за смерти: −{ms.CurrentDeathPenalty:F1} (макс −4)");
+
+            if (ms.IsStarving) {
+                var redStyle = new GUIStyle(GUI.skin.label) { 
+                    normal = { 
+                        textColor = Color.red 
+                    } 
+                };
+
+                GUILayout.Label("⚠ ГОЛОД: еда = 0, счастье −1", redStyle);
+            }
+
+            if (food != null && rm != null && vm != null) {
+                int foodAmt = rm.GetAmount(food);
+                int pop = vm.AllVillagers.Count;
+                var style = foodAmt == 0 && pop > 0 ? new GUIStyle(GUI.skin.label) { normal = { textColor = Color.red } } : GUI.skin.label;
+                GUILayout.Label($"Еда: {foodAmt} на {pop} жителей", style);
+            }
+
+            if (GUILayout.Button("Сбросить штраф смертности")) {
+                ms.DebugResetPenalty();
             }
         }
 

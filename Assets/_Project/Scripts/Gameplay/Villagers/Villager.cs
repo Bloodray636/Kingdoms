@@ -202,7 +202,7 @@ namespace KingdomsClone.Gameplay
             _lastCheckDay = day;
 
             if (_hunger >= MaxHunger) { 
-                OnDeath(); 
+                OnDeath(VillagerDeathCause.Hunger); 
                 return; 
             }
 
@@ -273,13 +273,20 @@ namespace KingdomsClone.Gameplay
                 Debug.Log($"[Villager] {gameObject.name}: НЕЧЕГО ЕСТЬ! Голод {_hunger}/{MaxHunger}");
 
                 if (_hunger >= MaxHunger) {
-                    OnDeath();
+                    OnDeath(VillagerDeathCause.Hunger);
                 }
             }
         }
 
-        private void OnDeath()
+        private void OnDeath(VillagerDeathCause cause = VillagerDeathCause.Unknown)
         {
+            EventBus.Publish(new VillagerDiedEvent
+            {
+                VillagerName = _villagerName,
+                Position = GridSystem.Instance != null ? GridSystem.Instance.WorldToCell(transform.position) : Vector2Int.zero,
+                Cause = cause
+            });
+
             if (VillagerManager.Instance != null) {
                 VillagerManager.Instance.DespawnVillager(this, playEffect: true);
             } else {
@@ -685,7 +692,7 @@ namespace KingdomsClone.Gameplay
                 Debug.Log($"[Villager] {gameObject.name}: НЕЧЕГО ЕСТЬ на складе! Голод {_hunger}/{MaxHunger}");
 
                 if (_hunger >= MaxHunger) { 
-                    OnDeath(); 
+                    OnDeath(VillagerDeathCause.Hunger);
                     return; 
                 }
             }
